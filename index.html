@@ -222,6 +222,9 @@
                 <button class="iconButton" data-icon="img/bike-conflict-zone.svg">
                     <img src="img/bike-conflict-zone.svg" alt="Green bike conflict zone" style="width: 34px;">
                 </button>
+                <button class="iconButton" data-icon="img/left-turn-bike-box.png">
+                    <img src="img/left-turn-bike-box.png" alt="Left turn bike box" style="width: 34px;">
+                </button>
                 <!-- <button class="iconButton" data-icon="img/twlt.png">
                     <img src="img/twlt.png" alt="Two-way turn lane" style="width: 30px;">
                 </button> -->
@@ -252,6 +255,8 @@
                 <div id="angleValue">0°</div>
             </div>
             <button id="removeMarker">Remove Selected Marker</button>
+            <hr>
+            <button id="deleteMarkers">Delete All Markers</button>
         </div>
         <!-- Lane Lines Tab -->
         <div id="laneTab" class="tabContent" style="display: none;">
@@ -271,6 +276,8 @@
             <button id="editLaneLine">Edit Selected Lane Line</button>
             <button id="saveLaneLineEdits">Save Lane Line Edits</button>
             <button id="removeLaneLine">Remove Selected Lane Line</button>
+            <hr>
+            <button id="deleteLaneLines">Delete All Lane Lines</button>
         </div>
         <!-- Pavement Color Tab -->
         <div id="pavementColorTab" class="tabContent" style="display: none;">
@@ -830,25 +837,15 @@
             // Get the project name from the input or label.
             const projectName = document.getElementById('projectNameInput').value || document.getElementById('projectNameLabel').textContent;
             // Replace any character that isn't a letter, number, dash, or underscore with an underscore.
-            const safeProjectName = projectName.replace(/[^a-zA-Z0-9-_]/g, '_');
+            const safeProjectName = projectName.replace(/[^a-zA-Z0-9-_]/g, '_')+'.geojson';
             // Append the .geojson extension.
-            // Use the file name if the loaded geojson has no project name
-            const fileName = file.name;
-            const baseName = fileName.replace(/\.[^/.]+$/, ""); // remove file extension
-
-            if (!geojson.project || !geojson.project.name || !geojson.project.name.trim()) {
-                document.getElementById('projectNameLabel').textContent = baseName;
-                document.getElementById('projectNameInput').value = baseName;
-            } else {
-                document.getElementById('projectNameLabel').textContent = geojson.project.name;
-                document.getElementById('projectNameInput').value = geojson.project.name;
-            }
+            
 
             const geojson = { type: "FeatureCollection", features: features, project: project };
             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(geojson));
             const a = document.createElement('a');
             a.setAttribute("href", dataStr);
-            a.setAttribute("download", filename);
+            a.setAttribute("download", safeProjectName);
             document.body.appendChild(a);
             a.click();
             a.remove();
@@ -944,8 +941,20 @@
                         
                         // Update project settings if available.
                         if (geojson.project) {
-                            document.getElementById('projectNameLabel').textContent = geojson.project.name || "";
-                            document.getElementById('projectNameInput').value = geojson.project.name || "";
+                            // document.getElementById('projectNameLabel').textContent = geojson.project.name || "";
+                            // document.getElementById('projectNameInput').value = geojson.project.name || "";
+                            // Use the file name if the loaded geojson has no project name
+                            const fileName = file.name;
+                            const baseName = fileName.replace(/\.[^/.]+$/, ""); // remove file extension
+
+                            if (!geojson.project || !geojson.project.name || !geojson.project.name.trim()) {
+                                document.getElementById('projectNameLabel').textContent = baseName;
+                                document.getElementById('projectNameInput').value = baseName;
+                            } else {
+                                document.getElementById('projectNameLabel').textContent = geojson.project.name;
+                                document.getElementById('projectNameInput').value = geojson.project.name;
+                            }
+
                             document.getElementById('initialLat').value = geojson.project.initialCenter ? geojson.project.initialCenter[0] : "";
                             document.getElementById('initialLng').value = geojson.project.initialCenter ? geojson.project.initialCenter[1] : "";
                             document.getElementById('initialZoom').value = geojson.project.initialZoom || 21;
@@ -1154,6 +1163,16 @@
                 document.getElementById('collapseButton').addEventListener('click', function () {
                     const controlBox = document.getElementById('control');
                     controlBox.classList.toggle('collapsed');
+                });    
+
+            document.getElementById('deleteMarkers').addEventListener('click', function () {
+                    markers.forEach(m => map.removeLayer(m));
+                    markers.length = 0; // clear the array
+                });
+
+                document.getElementById('deleteLaneLines').addEventListener('click', function () {
+                    laneLines.forEach(l => map.removeLayer(l));
+                    laneLines.length = 0; // clear the array
                 });    
     </script>
 </body>

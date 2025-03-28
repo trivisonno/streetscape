@@ -301,15 +301,7 @@
                 <input type="number" id="initialZoom" value="21" min="1"><br>
             </div>
             <button id="updateProjectSettings">Update View Coordinates</button>
-            <div id="tileLayerList">
-                <label>Tile Layers:</label>
-                <!-- We'll have two tile layers as examples -->
-                <label><input type="checkbox" class="tileLayerCheckbox" data-name="Cuyahoga County"
-                        data-url="https://gis.cuyahogacounty.us/server/rest/services/IMAGERY/2023_Fall_Aerial/MapServer/tile/{z}/{y}/{x}"
-                        checked> Cuyahoga County</label>
-                <label><input type="checkbox" class="tileLayerCheckbox" data-name="OpenStreetMap"
-                        data-url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" checked> OpenStreetMap</label>
-            </div>
+            
             <hr>
             <button id="deleteMarkers">Delete All Markers</button>
             <button id="deleteLaneLines">Delete All Lane Lines</button>
@@ -382,8 +374,8 @@
                 }
             });    
 
-        tileLayers.push({ name: "Cuyahoga County", url: 'https://gis.cuyahogacounty.us/server/rest/services/IMAGERY/2023_Fall_Aerial/MapServer/tile/{z}/{y}/{x}', layer: esriTiles, visible: true });
-        tileLayers.push({ name: "OpenStreetMap", url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', layer: osmTiles, visible: false });
+        tileLayers.push({ name: "Cuyahoga County", url: 'https://gis.cuyahogacounty.us/server/rest/services/IMAGERY/2023_Fall_Aerial/MapServer/tile/{z}/{y}/{x}', layer: esriTiles });
+        tileLayers.push({ name: "OpenStreetMap", url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', layer: osmTiles });
 
 
         // Create separate layer groups.
@@ -428,13 +420,6 @@
             }
         });
 
-        // Ensure the map zooms out to the layer's maxZoom if the current zoom level is higher
-        map.on('baselayerchange', function (e) {
-            const selectedLayer = e.name === "OpenStreetMap" ? osmTiles : esriTiles;
-            if (map.getZoom() > selectedLayer.options.maxZoom) {
-                map.setZoom(selectedLayer.options.maxZoom); // Force zoom out to the layer's maxZoom
-            }
-        });
 
         // Update layers to use the new feature groups
         markers.forEach(marker => markersLayer.addLayer(marker));
@@ -921,7 +906,6 @@
                 tileLayers: tileLayers.map(tl => ({
                     name: tl.name,
                     url: tl.url,
-                    checked: tl.visible,
                     zoomOffset: tl.layer.options.zoomOffset || 0
                 }))
             };
@@ -1055,39 +1039,7 @@
                             document.getElementById('initialLng').value = geojson.project.initialCenter ? geojson.project.initialCenter[1] : "";
                             document.getElementById('initialZoom').value = geojson.project.initialZoom || 21;
                             // Update tile layer checkboxes.
-                            if (geojson.project && geojson.project.tileLayers) {
-                                geojson.project.tileLayers.forEach(savedTL => {
-                                    const existing = tileLayers.find(t => t.name === savedTL.name);
-                                    if (existing) {
-                                        existing.visible = savedTL.checked;
-                                        if (savedTL.checked) {
-                                            if (!map.hasLayer(existing.layer)) {
-                                                existing.layer.addTo(map);
-                                            }
-                                        } else {
-                                            if (map.hasLayer(existing.layer)) {
-                                                map.removeLayer(existing.layer);
-                                            }
-                                        }
-                                    } else {
-                                        // Create new tile layer using saved zoomOffset.
-                                        const newLayer = L.tileLayer(savedTL.url, {
-                                            maxZoom: 21,
-                                            zoomOffset: savedTL.zoomOffset,
-                                            attribution: '' // or set appropriate attribution
-                                        });
-                                        tileLayers.push({ name: savedTL.name, url: savedTL.url, layer: newLayer, visible: savedTL.checked });
-                                        if (savedTL.checked) { newLayer.addTo(map); }
-                                        // Also update the checkbox if you have one:
-                                        const checkboxes = document.querySelectorAll('.tileLayerCheckbox');
-                                        checkboxes.forEach(cb => {
-                                            if (cb.getAttribute('data-name') === savedTL.name) {
-                                                cb.checked = savedTL.checked;
-                                            }
-                                        });
-                                    }
-                                });
-                            }
+                            
                             // Set map view to project initial settings.
                             map.setView(geojson.project.initialCenter, geojson.project.initialZoom);
                         }
@@ -1108,19 +1060,19 @@
 
            
         // --- Tile Layer Management in Project Settings ---
-            const tileLayerCheckboxes = document.querySelectorAll('.tileLayerCheckbox');
-            tileLayerCheckboxes.forEach(cb => {
-                cb.addEventListener('change', function () {
-                    const name = this.getAttribute('data-name');
-                    tileLayers.forEach(t => {
-                        if (t.name === name) {
-                            t.visible = this.checked;
-                            if (this.checked) { t.layer.addTo(map); }
-                            else { map.removeLayer(t.layer); }
-                        }
-                    });
-                });
-            });    
+            // const tileLayerCheckboxes = document.querySelectorAll('.tileLayerCheckbox');
+            // tileLayerCheckboxes.forEach(cb => {
+            //     cb.addEventListener('change', function () {
+            //         const name = this.getAttribute('data-name');
+            //         tileLayers.forEach(t => {
+            //             if (t.name === name) {
+            //                 t.visible = this.checked;
+            //                 if (this.checked) { t.layer.addTo(map); }
+            //                 else { map.removeLayer(t.layer); }
+            //             }
+            //         });
+            //     });
+            // });    
 
         // --- Zoom-dependent Updates ---
         map.on('zoomend', function () {

@@ -152,6 +152,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
 
     <link rel="stylesheet" href="https://ppete2.github.io/Leaflet.PolylineMeasure/Leaflet.PolylineMeasure.css" />
+    <!-- Add FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
 </head>
 
 <body>
@@ -317,6 +319,12 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/leaflet-editable@1.2.0/src/Leaflet.Editable.js"></script>
     <script src="https://ppete2.github.io/Leaflet.PolylineMeasure/Leaflet.PolylineMeasure.js"></script> 
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-easybutton@2/src/easy-button.css">
+    <script src="https://cdn.jsdelivr.net/npm/leaflet-easybutton@2/src/easy-button.js"></script>
+    <!-- Add Leaflet.Export and html2canvas -->
+    <script src="js/html2canvas.min.js"></script>
+    <script src="js/leaflet_export.js"></script>
 
     <script>
         // --- Global Variables ---
@@ -1228,6 +1236,31 @@
                     laneLines.length = 0; // clear the array
                 }
             });    
+
+        // Add export image button to the map
+        L.easyButton({ 
+            position: 'topright', 
+            states: [{                 // specify different icons and responses for your button
+                stateName: 'get-center',
+                onClick: function (btn, map) {
+                    map.downloadExport({
+                        container: map._container,
+                        format: "image/jpg",
+                        fileName: "map.jpg",
+                        exclude: [
+                            '.leaflet-control-zoom',
+                            '.leaflet-control',
+                            '.leaflet-control-attribution',
+                            '.layercontrol',
+                            '.leaflet-control-layers',
+                            '.no-scrolling-clicking'
+                        ]
+                    });
+                },
+                title: 'show me the middle',
+                icon: 'fa-camera'
+            }]
+            }).addTo(map);
     </script>
 </body>
 

@@ -255,8 +255,6 @@
                 <div id="angleValue">0°</div>
             </div>
             <button id="removeMarker">Remove Selected Marker</button>
-            <hr>
-            <button id="deleteMarkers">Delete All Markers</button>
         </div>
         <!-- Lane Lines Tab -->
         <div id="laneTab" class="tabContent" style="display: none;">
@@ -276,8 +274,6 @@
             <button id="editLaneLine">Edit Selected Lane Line</button>
             <button id="saveLaneLineEdits">Save Lane Line Edits</button>
             <button id="removeLaneLine">Remove Selected Lane Line</button>
-            <hr>
-            <button id="deleteLaneLines">Delete All Lane Lines</button>
         </div>
         <!-- Pavement Color Tab -->
         <div id="pavementColorTab" class="tabContent" style="display: none;">
@@ -290,7 +286,7 @@
                 <input type="range" id="pavementFillOpacity" min="0" max="1" step="0.1" value="1">
                 <span id="pavementFillOpacityValue">1</span>
             </div>
-            <button id="drawPavementPolygon">Draw Pavement Polygon</button>
+            <button id="drawPavementPolygon">New Pavement Shape</button>
             <button id="editPavementPolygon">Edit Selected Pavement Polygon</button>
             <button id="removePavementPolygon">Remove Selected Pavement Polygon</button>
         </div>
@@ -314,9 +310,11 @@
                 <label><input type="checkbox" class="tileLayerCheckbox" data-name="OpenStreetMap"
                         data-url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" checked> OpenStreetMap</label>
             </div>
-        </div>
-        <button id="clearMap">Clear Map</button>
-        <button id="loadGeoJsonBtn">&#128194; Load GeoJSON</button>
+            <hr>
+            <button id="deleteMarkers">Delete All Markers</button>
+            <button id="deleteLaneLines">Delete All Lane Lines</button>
+            <button id="clearMap">Clear Map</button>
+        </div><button id="loadGeoJsonBtn">&#128194; Load GeoJSON</button>
         <button id="saveGeoJson">&#128190; Save GeoJSON</button>
         <input type="file" id="loadGeoJson" style="display: none;">
     </div>
@@ -406,6 +404,83 @@
                 }
             });
 
+        // Overlay layers
+        const markersLayer = L.featureGroup().addTo(map);
+
+        // Layer control
+        const baseLayers = {
+            "Cuyahoga County": esriTiles,
+            "OpenStreetMap": osmTiles
+        };
+
+        const overlayLayers = {
+            "Pavement Polygons": pavementPolygonsLayer,
+            "Lane Lines": laneLinesLayer,
+            "Markers": markersLayer
+        };
+
+        let layerControl = L.control.layers(baseLayers, overlayLayers).addTo(map);
+
+        // Listen for base layer changes
+        map.on('baselayerchange', function (e) {
+            if (e.name === "OpenStreetMap") {
+                map.setZoom(Math.min(map.getZoom(), osmTiles.options.maxZoom)); // Force zoom out if needed
+            }
+        });
+
+        // Ensure the map zooms out to the layer's maxZoom if the current zoom level is higher
+        map.on('baselayerchange', function (e) {
+            const selectedLayer = e.name === "OpenStreetMap" ? osmTiles : esriTiles;
+            if (map.getZoom() > selectedLayer.options.maxZoom) {
+                map.setZoom(selectedLayer.options.maxZoom); // Force zoom out to the layer's maxZoom
+            }
+        });
+
+        // Update layers to use the new feature groups
+        markers.forEach(marker => markersLayer.addLayer(marker));
+        laneLines.forEach(line => laneLinesLayer.addLayer(line));
+        pavementPolygons.forEach(polygon => pavementPolygonsLayer.addLayer(polygon));
+
+        // Ensure new features are added to their respective layers
+        function addMarkerToLayer(marker) {
+            markersLayer.addLayer(marker);
+        }
+
+        function addLaneLineToLayer(line) {
+            laneLinesLayer.addLayer(line);
+        }
+
+        function addPavementPolygonToLayer(polygon) {
+            pavementPolygonsLayer.addLayer(polygon);
+        }
+
+        // Update layer control labels based on zoom level
+        function updateLayerControlLabels() {
+            const currentZoom = map.getZoom();
+            const updatedBaseLayers = {};
+            Object.keys(baseLayers).forEach(layerName => {
+                const layer = baseLayers[layerName];
+                const label = currentZoom > layer.options.maxZoom ? `${layerName} (zoom out)` : layerName;
+                updatedBaseLayers[label] = layer;
+            });
+            layerControl.remove();
+            layerControl = L.control.layers(updatedBaseLayers, overlayLayers).addTo(map);
+        }
+
+        // Listen for zoom changes to update layer control labels
+        map.on('zoomend', updateLayerControlLabels);
+
+        // Listen for base layer changes and adjust zoom if necessary
+        map.on('baselayerchange', function (e) {
+            const selectedLayer = e.name.includes("OpenStreetMap") ? osmTiles : esriTiles;
+            if (map.getZoom() > selectedLayer.options.maxZoom) {
+                map.setZoom(selectedLayer.options.maxZoom); // Force zoom out to the layer's maxZoom
+            }
+        });
+
+        // Initial update of layer control labels
+        updateLayerControlLabels();
+
         // --- Tab Switching ---
         const tabMarkings = document.getElementById('tabMarkings');
         const tabLaneLines = document.getElementById('tabLaneLines');
@@ -415,56 +490,72 @@
         const laneTab = document.getElementById('laneTab');
         const pavementColorTab = document.getElementById('pavementColorTab');
         const projectSettingsTab = document.getElementById('projectSettingsTab');
+
+        function deselectAllPavementPolygons() {
+            pavementPolygons.forEach(poly => {
+                poly.setStyle({ 
+                    dashArray: poly.myStyle.dashArray || "", 
+                    weight: poly.myStyle.weight || 0, 
+                    color: poly.myStyle.color || "transparent" 
+                });
+                if (poly.disableEdit) {
+                    poly.disableEdit();
+                }
+            });
+            selectedPavementPolygon = null;
+        }
+
         tabMarkings.addEventListener('click', function () {
-                tabMarkings.classList.add('active');
-                tabLaneLines.classList.remove('active');
-                tabPavementColor.classList.remove('active');
-                tabProjectSettings.classList.remove('active');
-                projectSettingsTab.style.display = "none";
-                pavementTab.style.display = "block";
-                laneTab.style.display = "none";
-                pavementColorTab.style.display = "none";
-                disablePavementEditing();
-            });
+            tabMarkings.classList.add('active');
+            tabLaneLines.classList.remove('active');
+            tabPavementColor.classList.remove('active');
+            tabProjectSettings.classList.remove('active');
+            projectSettingsTab.style.display = "none";
+            pavementTab.style.display = "block";
+            laneTab.style.display = "none";
+            pavementColorTab.style.display = "none";
+            disablePavementEditing();
+            deselectAllPavementPolygons();
+        });
 
-            tabLaneLines.addEventListener('click', function () {
-                tabMarkings.classList.remove('active');
-                tabLaneLines.classList.add('active');
-                tabPavementColor.classList.remove('active');
-                pavementTab.style.display = "none";
-                laneTab.style.display = "block";
-                pavementColorTab.style.display = "none";
-                disablePavementEditing();
-                tabProjectSettings.classList.remove('active');
-                projectSettingsTab.style.display = "none";
-            });
+        tabLaneLines.addEventListener('click', function () {
+            tabMarkings.classList.remove('active');
+            tabLaneLines.classList.add('active');
+            tabPavementColor.classList.remove('active');
+            pavementTab.style.display = "none";
+            laneTab.style.display = "block";
+            pavementColorTab.style.display = "none";
+            disablePavementEditing();
+            tabProjectSettings.classList.remove('active');
+            projectSettingsTab.style.display = "none";
+            deselectAllPavementPolygons();
+        });
 
-            tabPavementColor.addEventListener('click', function () {
-                tabMarkings.classList.remove('active');
-                tabLaneLines.classList.remove('active');
-                tabPavementColor.classList.add('active');
-                pavementTab.style.display = "none";
-                laneTab.style.display = "none";
-                pavementColorTab.style.display = "block";
-                // Now enable editing/interactivity on pavement polygons
-                enablePavementEditing();
-                tabProjectSettings.classList.remove('active');
-                projectSettingsTab.style.display = "none";
-            });
+        tabPavementColor.addEventListener('click', function () {
+            tabMarkings.classList.remove('active');
+            tabLaneLines.classList.remove('active');
+            tabPavementColor.classList.add('active');
+            pavementTab.style.display = "none";
+            laneTab.style.display = "none";
+            pavementColorTab.style.display = "block";
+            // Now enable editing/interactivity on pavement polygons
+            enablePavementEditing();
+            tabProjectSettings.classList.remove('active');
+            projectSettingsTab.style.display = "none";
+        });
 
-
-            tabProjectSettings.addEventListener('click', function () {
-                tabMarkings.classList.remove('active');
-                tabLaneLines.classList.remove('active');
-                tabPavementColor.classList.remove('active');
-                tabProjectSettings.classList.add('active');
-                pavementTab.style.display = "none";
-                laneTab.style.display = "none";
-                pavementColorTab.style.display = "none";
-                projectSettingsTab.style.display = "block";
-                disablePavementEditing();
-            });
-
+        tabProjectSettings.addEventListener('click', function () {
+            tabMarkings.classList.remove('active');
+            tabLaneLines.classList.remove('active');
+            tabPavementColor.classList.remove('active');
+            tabProjectSettings.classList.add('active');
+            pavementTab.style.display = "none";
+            laneTab.style.display = "none";
+            pavementColorTab.style.display = "none";
+            projectSettingsTab.style.display = "block";
+            disablePavementEditing();
+            deselectAllPavementPolygons();
+        });
 
         // --- Pavement Markings ---
         function getIconForZoom(zoom, iconUrl) {
@@ -547,6 +638,7 @@
                     document.getElementById('angleLine').setAttribute('x2', 50 + 40 * Math.sin(rad));
                     document.getElementById('angleLine').setAttribute('y2', 50 - 40 * Math.cos(rad));
                 });
+                addMarkerToLayer(marker);
             }
             else if (laneTab.style.display !== "none") {
                 if (selectedLaneLine) {
@@ -627,6 +719,7 @@
                 });
                 // Automatically allow new line drawing.
                 startDrawingLaneLine();
+                addLaneLineToLayer(polyline);
             });
         }
         document.getElementById('editLaneLine').addEventListener('click', function () {
@@ -682,12 +775,11 @@
                         if (document.getElementById('pavementColorTab').style.display !== "none") {
                             L.DomEvent.stopPropagation(ev);
                         }
-                        if (selectedPavementPolygon && selectedPavementPolygon !== polygon) {
-                            selectedPavementPolygon.setStyle({ dashArray: selectedPavementPolygon.myStyle.dashArray || "" });
-                        }
+                        deselectAllPavementPolygons(); // Deselect all polygons first
                         selectedPavementPolygon = polygon;
                         polygon.setStyle({ dashArray: "10,10", weight: 5, color: 'red' });
                     });
+                    addPavementPolygonToLayer(polygon);
                 });
             });
 
@@ -888,6 +980,7 @@
                                     document.getElementById('angleLine').setAttribute('x2', 50 + 40 * Math.sin(rad));
                                     document.getElementById('angleLine').setAttribute('y2', 50 - 40 * Math.cos(rad));
                                 });
+                                addMarkerToLayer(marker);
                             } else if (feature.geometry.type === "LineString" && feature.properties.type === "lane") {
                                 const coords = feature.geometry.coordinates;
                                 const latlngs = coords.map(c => L.latLng(c[1], c[0]));
@@ -910,6 +1003,7 @@
                                     selectedLaneLine = polyline;
                                     polyline.setStyle({ dashArray: "10,10" });
                                 });
+                                addLaneLineToLayer(polyline);
                             } else if (feature.geometry.type === "Polygon" && feature.properties.type === "pavement") {
                                 const coords = feature.geometry.coordinates[0]; // assume single-ring
                                 const latlngs = coords.map(c => L.latLng(c[1], c[0]));
@@ -925,6 +1019,7 @@
                                 pavementPolygons.push(poly);
                                 poly.on('click', function (ev) {
                                     L.DomEvent.stopPropagation(ev);
+                                    deselectAllPavementPolygons(); // Deselect all polygons first
                                     if (selectedPavementPolygon && selectedPavementPolygon !== poly) {
                                         selectedPavementPolygon.setStyle({ dashArray: selectedPavementPolygon.myStyle.dashArray || "" });
                                     }
@@ -936,6 +1031,7 @@
                                 if (poly._path) {
                                     poly._path.style.pointerEvents = "none";
                                 }
+                                addPavementPolygonToLayer(poly);
                             }
                         });
                         
@@ -1134,17 +1230,19 @@
 
         // In your script, add an event listener to remove all features:
             document.getElementById('clearMap').addEventListener('click', function () {
-                // Remove all markers
-                markers.forEach(m => map.removeLayer(m));
-                markers.length = 0;
+                if (confirm('Are you sure you want to clear the map? This will remove all markers, lane lines, and pavement polygons.')) {
+                    // Remove all markers
+                    markers.forEach(m => map.removeLayer(m));
+                    markers.length = 0;
 
-                // Remove all lane lines
-                laneLines.forEach(l => map.removeLayer(l));
-                laneLines.length = 0;
+                    // Remove all lane lines
+                    laneLines.forEach(l => map.removeLayer(l));
+                    laneLines.length = 0;
 
-                // Remove all pavement polygons
-                pavementPolygons.forEach(p => map.removeLayer(p));
-                pavementPolygons.length = 0;
+                    // Remove all pavement polygons
+                    pavementPolygons.forEach(p => map.removeLayer(p));
+                    pavementPolygons.length = 0;
+                }
             });  
 
             // A snippet to handle clicking the edit icon.
@@ -1166,14 +1264,18 @@
                 });    
 
             document.getElementById('deleteMarkers').addEventListener('click', function () {
+                if (confirm('Are you sure you want to delete all markers?')) {
                     markers.forEach(m => map.removeLayer(m));
                     markers.length = 0; // clear the array
-                });
+                }
+            });
 
-                document.getElementById('deleteLaneLines').addEventListener('click', function () {
+            document.getElementById('deleteLaneLines').addEventListener('click', function () {
+                if (confirm('Are you sure you want to delete all lane lines?')) {
                     laneLines.forEach(l => map.removeLayer(l));
                     laneLines.length = 0; // clear the array
-                });    
+                }
+            });    
     </script>
 </body>
 

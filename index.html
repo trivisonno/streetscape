@@ -29,7 +29,7 @@
             border-radius: 5px;
             box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
             font-family: sans-serif;
-            max-width: 250px;
+            max-width: 275px;
         }
 
         #control.collapsed {
@@ -164,6 +164,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
 
     <link rel="stylesheet" href="https://ppete2.github.io/Leaflet.PolylineMeasure/Leaflet.PolylineMeasure.css" />
+    <!-- Add Turf.js for accurate geospatial calculations -->
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf/turf.min.js"></script>
 </head>
 
 <body>
@@ -262,13 +264,22 @@
                     <img src="img/football.png" alt="Protected intersection curb" style="width: 30px;">
                 </button>
                 <button class="iconButton sign" data-icon="img/MUTCD_R10-11.png">
-                    <img src="img/MUTCD_R10-11.png" alt="No turn on" style="width: 30px;">
+                    <img src="img/MUTCD_R10-11.png" alt="No turn on red" style="width: 30px;">
                 </button>
                 <button class="iconButton sign" data-icon="img/MUTCD_R1-1.svg.png">
-                    <img src="img/MUTCD_R1-1.svg.png" alt="No turn on" style="width: 30px;">
+                    <img src="img/MUTCD_R1-1.svg.png" alt="Stop sign" style="width: 30px;">
                 </button>
                 <button class="iconButton sign" data-icon="img/MUTCD_R6-2R.svg.png">
-                    <img src="img/MUTCD_R6-2R.svg.png" alt="No turn on" style="width: 30px;">
+                    <img src="img/MUTCD_R6-2R.svg.png" alt="One way right" style="width: 30px;">
+                </button>
+                <button class="iconButton sign" data-icon="img/MUTCD_R6-2L.svg.png">
+                    <img src="img/MUTCD_R6-2L.svg.png" alt="One way left" style="width: 30px;">
+                </button>
+                <button class="iconButton sign" data-icon="img/MUTCD_R5-1.svg.png">
+                    <img src="img/MUTCD_R5-1.svg.png" alt="Do not enter sign" style="width: 30px;">
+                </button>
+                <button class="iconButton sign" data-icon="img/MUTCD_W1-7.svg.png">
+                    <img src="img/MUTCD_W1-7.svg.png" alt="Two-direction large arrow sign" style="width: 30px;">
                 </button>
             </div>
             <div id="angleSelector">
@@ -277,6 +288,7 @@
                     <line id="angleLine" x1="50" y1="50" x2="50" y2="10" stroke="red" stroke-width="2" />
                 </svg>
                 <div id="angleValue">0°</div>
+                <button id="angle180Button">Rotate 180°</button>
             </div>
             <button id="removeMarker">Remove Selected Marker</button>
         </div>
@@ -321,8 +333,8 @@
                 </label>
             </div>
             <button id="drawLaneLine">Draw New Lane Line (L)</button>
-            <button id="editLaneLine">Edit Selected Lane Line</button>
-            <button id="saveLaneLineEdits">Save Lane Line Edits</button>
+            <!-- <button id="editLaneLine">Edit Selected Lane Line</button> -->
+            <!-- <button id="saveLaneLineEdits">Save Lane Line Edits</button> -->
             <button id="removeLaneLine">Remove Selected Lane Line</button>
         </div>
         <!-- Pavement Color Tab -->
@@ -336,6 +348,7 @@
                 <input type="range" id="pavementFillOpacity" min="0" max="1" step="0.1" value="1">
                 <span id="pavementFillOpacityValue">1</span>
             </div>
+            <div id="pavementArea" style="margin-top: 10px; font-weight: bold;"></div>
             <button id="drawPavementPolygon">New Pavement Shape</button>
             <button id="editPavementPolygon">Edit Selected Pavement Polygon</button>
             <button id="removePavementPolygon">Remove Selected Pavement Polygon</button>
@@ -559,6 +572,9 @@
                 }
             });
             selectedPavementPolygon = null;
+
+            // Hide the area display when no polygon is selected
+            document.getElementById('pavementArea').textContent = '';
         }
 
         tabMarkings.addEventListener('click', function () {
@@ -763,6 +779,19 @@
             window.addEventListener('mouseup', function () { dragging = false; });
         })();
 
+        document.getElementById('angle180Button').addEventListener('click', function () {
+            const angleValue = document.getElementById('angleValue');
+            let currentAngle = parseInt(angleValue.textContent);
+            currentAngle = (currentAngle + 180) % 360;
+            angleValue.textContent = currentAngle + '°';
+            const rad = currentAngle * Math.PI / 180;
+            document.getElementById('angleLine').setAttribute('x2', 50 + 40 * Math.sin(rad));
+            document.getElementById('angleLine').setAttribute('y2', 50 - 40 * Math.cos(rad));
+            if (selectedMarker) {
+                selectedMarker.setRotationAngle(currentAngle);
+            }
+        });
+
         // --- Lane Lines Section ---
         function startDrawingLaneLine() {
             const laneColor = document.querySelector('input[name="laneColor"]:checked').value;
@@ -773,8 +802,8 @@
                 const latlngs = polyline.getLatLngs();
                 // if (!latlngs || latlngs.length < 2) { console.error("Invalid polyline"); return; }
                 if (polyline.disableEdit) { polyline.disableEdit(); }
-                polyline.setStyle({ color: laneColor, weight: laneWidth, dashArray: laneDash, lineJoin: "miter", lineCap: "square" });
-                polyline.myStyle = { color: laneColor, weight: laneWidth, dashArray: laneDash, lineJoin: "miter", lineCap: "square" };
+                polyline.setStyle({ color: laneColor, weight: laneWidth, dashArray: laneDash, lineJoin: "round", lineCap: "square" });
+                polyline.myStyle = { color: laneColor, weight: laneWidth, dashArray: laneDash, lineJoin: "round", lineCap: "square" };
                 laneLinesLayer.addLayer(polyline);
                 laneLines.push(polyline);
                 polyline.off('editable:drawing:commit editable:drawing:end');
@@ -800,19 +829,19 @@
         document.getElementById('drawLaneLine').addEventListener('click', function () {
             startDrawingLaneLine();
         });
-        document.getElementById('editLaneLine').addEventListener('click', function () {
-            if (selectedLaneLine) { selectedLaneLine.enableEdit(); }
-        });
-        document.getElementById('saveLaneLineEdits').addEventListener('click', function () {
-            if (selectedLaneLine) {
-                selectedLaneLine.disableEdit();
-                const newColor = document.querySelector('input[name="laneColor"]:checked').value;
-                const newWidth = parseInt(document.querySelector('input[name="laneWidth"]:checked').value, 10);
-                const newDash = document.querySelector('input[name="laneDash"]:checked').value;
-                selectedLaneLine.myStyle = { color: newColor, weight: newWidth, dashArray: newDash, lineJoin: "miter", lineCap: "square" };
-                selectedLaneLine.setStyle({ color: newColor, weight: newWidth, dashArray: newDash, lineJoin: "miter", lineCap: "square" });
-            }
-        });
+        // document.getElementById('editLaneLine').addEventListener('click', function () {
+        //     if (selectedLaneLine) { selectedLaneLine.enableEdit(); }
+        // });
+        // document.getElementById('saveLaneLineEdits').addEventListener('click', function () {
+        //     if (selectedLaneLine) {
+        //         selectedLaneLine.disableEdit();
+        //         const newColor = document.querySelector('input[name="laneColor"]:checked').value;
+        //         const newWidth = parseInt(document.querySelector('input[name="laneWidth"]:checked').value, 10);
+        //         const newDash = document.querySelector('input[name="laneDash"]:checked').value;
+        //         selectedLaneLine.myStyle = { color: newColor, weight: newWidth, dashArray: newDash, lineJoin: "round", lineCap: "square" };
+        //         selectedLaneLine.setStyle({ color: newColor, weight: newWidth, dashArray: newDash, lineJoin: "round", lineCap: "square" });
+        //     }
+        // });
         document.getElementById('removeLaneLine').addEventListener('click', function () {
             if (selectedLaneLine) {
                 laneLinesLayer.removeLayer(selectedLaneLine);
@@ -833,7 +862,7 @@
                     color: newColor,
                     weight: newWidth,
                     dashArray: newDash,
-                    lineJoin: "miter",
+                    lineJoin: "round",
                     lineCap: "square"
                 });
 
@@ -842,7 +871,7 @@
                     color: newColor,
                     weight: newWidth,
                     dashArray: newDash,
-                    lineJoin: "miter",
+                    lineJoin: "round",
                     lineCap: "square"
                 };
             }
@@ -895,6 +924,7 @@
                     deselectAllPavementPolygons(); // Deselect all polygons first
                     selectedPavementPolygon = polygon;
                     polygon.setStyle({ dashArray: "20,20", weight: 5, color: 'red' });
+                    updatePavementAreaDisplay(polygon); // Update area display
                 });
                 addPavementPolygonToLayer(polygon);
             });
@@ -932,6 +962,36 @@
                 selectedPavementPolygon = null;
             }
         });
+
+        // Function to calculate the area of a polygon in square feet using Turf.js
+        function calculatePolygonArea(polygon) {
+            const latLngs = polygon.getLatLngs()[0] || polygon.getLatLngs();
+            const coordinates = latLngs.map(latlng => [latlng.lng, latlng.lat]);
+
+            // Ensure the polygon is closed by checking if the first and last coordinates are the same
+            if (coordinates.length > 0) {
+                const firstCoord = coordinates[0];
+                const lastCoord = coordinates[coordinates.length - 1];
+                if (firstCoord[0] !== lastCoord[0] || firstCoord[1] !== lastCoord[1]) {
+                    coordinates.push(firstCoord); // Add the first coordinate to the end to close the polygon
+                }
+            }
+
+            const geojsonPolygon = turf.polygon([coordinates]);
+            const areaInSquareMeters = turf.area(geojsonPolygon);
+            return areaInSquareMeters * 10.7639; // Convert to square feet
+        }
+
+        // Update the area display when a polygon is clicked
+        function updatePavementAreaDisplay(polygon) {
+            if (polygon) {
+                const area = calculatePolygonArea(polygon);
+                document.getElementById('pavementArea').textContent = `Area: ${area.toFixed(0)} sqft`;
+            } else {
+                // Hide the area display if no polygon is selected
+                document.getElementById('pavementArea').textContent = '';
+            }
+        }
 
         // --- Save/Load GeoJSON with coordinates rounded to 6 decimals ---
         document.getElementById('saveGeoJson').addEventListener('click', function () {
@@ -1142,6 +1202,7 @@
                                 }
                                 selectedPavementPolygon = poly;
                                 poly.setStyle({ dashArray: "20,20", weight: 5, color: 'red' });
+                                updatePavementAreaDisplay(poly);
                             });
                             poly.disableEdit();
                             poly.options.interactive = false;

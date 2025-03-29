@@ -33,21 +33,24 @@
         }
 
         #control.collapsed {
-            
-            overflow: hidden;  /* hide overflowing content */
-            height: 20px;      /* example: reduce height too */
-            }
+
+            overflow: hidden;
+            /* hide overflowing content */
+            height: 20px;
+            /* example: reduce height too */
+        }
 
         /* Project header with editable project name */
-      #projectHeader {
-        margin-bottom: 10px;
-      }
-      #projectHeader label {
-        font-weight: bold;
-        margin-right: 5px;
-      }
-      
-      /* Tab header (three tabs) */
+        #projectHeader {
+            margin-bottom: 10px;
+        }
+
+        #projectHeader label {
+            font-weight: bold;
+            margin-right: 5px;
+        }
+
+        /* Tab header (three tabs) */
         #tabs {
             display: flex;
             margin-bottom: 5px;
@@ -111,18 +114,27 @@
         }
 
         /* Project Settings inputs */
-      #projectSettingsTab label { display: block; margin-top: 5px; }
-      #tileLayerList { margin-top: 5px; }
-      #tileLayerList label { display: block; }
+        #projectSettingsTab label {
+            display: block;
+            margin-top: 5px;
+        }
 
-      #projectNameLabel {
-        font-size: 0.8rem;
+        #tileLayerList {
+            margin-top: 5px;
+        }
+
+        #tileLayerList label {
+            display: block;
+        }
+
+        #projectNameLabel {
+            font-size: 0.8rem;
         }
 
         /* Make the projectNameInput fill its container width */
         #projectNameInput {
-        width: 100%;
-        box-sizing: border-box;
+            width: 100%;
+            box-sizing: border-box;
         }
 
         /* Allow horizontal scrolling for iconOptions */
@@ -132,19 +144,19 @@
             white-space: nowrap;
             /* For browsers that support scrollbar-gutter, use stable to keep the gutter visible */
             scrollbar-gutter: stable;
-            }
+        }
 
         label[for="pavementStroke"] {
-        display: none;
+            display: none;
         }
 
         #pavementStroke {
-        position: absolute;
-        opacity: 0;
-        pointer-events: none;
-        width: 0;
-        height: 0;
-        }    
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+            width: 0;
+            height: 0;
+        }
     </style>
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
@@ -152,8 +164,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
 
     <link rel="stylesheet" href="https://ppete2.github.io/Leaflet.PolylineMeasure/Leaflet.PolylineMeasure.css" />
-    <!-- Add FontAwesome for icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
 </head>
 
 <body>
@@ -161,27 +171,27 @@
     <div id="map"></div>
     <!-- Control panel -->
     <div id="control"><!-- Editable Project Name -->
-    <div id="projectHeader">
-        <span id="projectNameLabel" style="font-size: 0.8rem; cursor: pointer;">
-            My Project
-        </span>
-        <span id="projectNameEdit" style="cursor: pointer;">
-            <svg width="10px" height="10px" xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 512 512"><!--!Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.-->
-                <path
-                    d="M471.6 21.7c-21.9-21.9-57.3-21.9-79.2 0L362.3 51.7l97.9 97.9 30.1-30.1c21.9-21.9 21.9-57.3 0-79.2L471.6 21.7zm-299.2 220c-6.1 6.1-10.8 13.6-13.5 21.9l-29.6 88.8c-2.9 8.6-.6 18.1 5.8 24.6s15.9 8.7 24.6 5.8l88.8-29.6c8.2-2.7 15.7-7.4 21.9-13.5L437.7 172.3 339.7 74.3 172.4 241.7zM96 64C43 64 0 107 0 160L0 416c0 53 43 96 96 96l256 0c53 0 96-43 96-96l0-96c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 96c0 17.7-14.3 32-32 32L96 448c-17.7 0-32-14.3-32-32l0-256c0-17.7 14.3-32 32-32l96 0c17.7 0 32-14.3 32-32s-14.3-32-32-32L96 64z" />
-            </svg>
-        </span>
-        <input type="text" id="projectNameInput" value="My Project" style="display:none;">
-        <button id="projectNameOk" style="display:none;">OK</button>
-        <div id="collapseButton" style="position: absolute; top: 10px; right: 10px; cursor: pointer;">
-            <svg width="16px" height="16px" xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 448 512"><!--!Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.-->
-                <path
-                    d="M0 96C0 78.3 14.3 64 32 64l384 0c17.7 0 32 14.3 32 32s-14.3 32-32 32L32 128C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32l384 0c17.7 0 32 14.3 32 32s-14.3 32-32 32L32 288c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32L32 448c-17.7 0-32-14.3-32-32s14.3-32 32-32l384 0c17.7 0 32 14.3 32 32z" />
-            </svg>
+        <div id="projectHeader">
+            <span id="projectNameLabel" style="font-size: 0.8rem; cursor: pointer;">
+                My Project
+            </span>
+            <span id="projectNameEdit" style="cursor: pointer;">
+                <svg width="10px" height="10px" xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 512 512"><!--!Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.-->
+                    <path
+                        d="M471.6 21.7c-21.9-21.9-57.3-21.9-79.2 0L362.3 51.7l97.9 97.9 30.1-30.1c21.9-21.9 21.9-57.3 0-79.2L471.6 21.7zm-299.2 220c-6.1 6.1-10.8 13.6-13.5 21.9l-29.6 88.8c-2.9 8.6-.6 18.1 5.8 24.6s15.9 8.7 24.6 5.8l88.8-29.6c8.2-2.7 15.7-7.4 21.9-13.5L437.7 172.3 339.7 74.3 172.4 241.7zM96 64C43 64 0 107 0 160L0 416c0 53 43 96 96 96l256 0c53 0 96-43 96-96l0-96c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 96c0 17.7-14.3 32-32 32L96 448c-17.7 0-32-14.3-32-32l0-256c0-17.7 14.3-32 32-32l96 0c17.7 0 32-14.3 32-32s-14.3-32-32-32L96 64z" />
+                </svg>
+            </span>
+            <input type="text" id="projectNameInput" value="My Project" style="display:none;">
+            <button id="projectNameOk" style="display:none;">OK</button>
+            <div id="collapseButton" style="position: absolute; top: 10px; right: 10px; cursor: pointer;">
+                <svg width="16px" height="16px" xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 448 512"><!--!Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.-->
+                    <path
+                        d="M0 96C0 78.3 14.3 64 32 64l384 0c17.7 0 32 14.3 32 32s-14.3 32-32 32L32 128C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32l384 0c17.7 0 32 14.3 32 32s-14.3 32-32 32L32 288c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32L32 448c-17.7 0-32-14.3-32-32s14.3-32 32-32l384 0c17.7 0 32 14.3 32 32z" />
+                </svg>
+            </div>
         </div>
-    </div>
         <div id="tabs">
             <button id="tabMarkings" class="tab active">Traffic Control</button>
             <button id="tabLaneLines" class="tab">Line Markings</button>
@@ -194,29 +204,26 @@
                 <button class="iconButton" data-icon="img/bikelane.png">
                     <img src="img/bikelane.png" alt="Bike Lane" style="width: 30px;">
                 </button>
-                <button class="iconButton"
-                    data-icon="img/bikelane-green.png">
-                    <img src="img/bikelane-green.png" alt="Bike Lane green"
-                        style="width: 30px;">
+                <button class="iconButton" data-icon="img/bikelane-green.png">
+                    <img src="img/bikelane-green.png" alt="Bike Lane green" style="width: 30px;">
                 </button>
                 <button class="iconButton" data-icon="img/sharrow.png">
                     <img src="img/sharrow.png" alt="Sharrow" style="width: 30px;">
                 </button>
-                <button class="iconButton"
-                    data-icon="img/sharrow-green.png">
-                    <img src="img/sharrow-green.png" alt="Sharrow"
-                        style="width: 30px;">
+                <button class="iconButton" data-icon="img/sharrow-green.png">
+                    <img src="img/sharrow-green.png" alt="Sharrow" style="width: 30px;">
+                </button>
+                <button class="iconButton" data-icon="img/bike-symbol.png">
+                    <img src="img/bike-symbol.png" alt="Bike symbol" style="width: 30px;">
                 </button>
                 <button class="iconButton" data-icon="img/onlybus-red.png">
-                    <img src="img/onlybus-red.png" alt="Only Bus"
-                        style="width: 30px;">
+                    <img src="img/onlybus-red.png" alt="Only Bus" style="width: 30px;">
                 </button>
                 <button class="iconButton" data-icon="img/onlybus.png">
                     <img src="img/onlybus.png" alt="Only Bus" style="width: 30px;">
                 </button>
                 <button class="iconButton" data-icon="img/parking.png">
-                    <img src="img/parking.png" alt="Parking"
-                        style="width: 30px;">
+                    <img src="img/parking.png" alt="Parking" style="width: 30px;">
                 </button>
                 <button class="iconButton" data-icon="img/speed-table.png">
                     <img src="img/speed-table.png" alt="Speed table" style="width: 30px;">
@@ -248,6 +255,21 @@
                 <button class="iconButton" data-icon="img/uturn-left.png">
                     <img src="img/uturn-left.png" alt="U-turn and left turn" style="width: 30px;">
                 </button>
+                <button class="iconButton" data-icon="img/bike-racks.png">
+                    <img src="img/bike-racks.png" alt="U-turn and left turn" style="width: 42px;">
+                </button>
+                <button class="iconButton" data-icon="img/football.png">
+                    <img src="img/football.png" alt="Protected intersection curb" style="width: 30px;">
+                </button>
+                <button class="iconButton sign" data-icon="img/MUTCD_R10-11.png">
+                    <img src="img/MUTCD_R10-11.png" alt="No turn on" style="width: 30px;">
+                </button>
+                <button class="iconButton sign" data-icon="img/MUTCD_R1-1.svg.png">
+                    <img src="img/MUTCD_R1-1.svg.png" alt="No turn on" style="width: 30px;">
+                </button>
+                <button class="iconButton sign" data-icon="img/MUTCD_R6-2R.svg.png">
+                    <img src="img/MUTCD_R6-2R.svg.png" alt="No turn on" style="width: 30px;">
+                </button>
             </div>
             <div id="angleSelector">
                 <svg id="angleSVG" width="100" height="100" viewBox="0 0 100 100">
@@ -261,18 +283,44 @@
         <!-- Lane Lines Tab -->
         <div id="laneTab" class="tabContent" style="display: none;">
             <div>
-                <label for="laneColor">Lane Color:</label>
-                <input type="color" id="laneColor" value="#ffffff"><br>
-                <label for="laneWidth">Lane Width:</label>
-                <input type="number" id="laneWidth" value="3" min="1"><br>
-                <label for="laneDash">Lane Style:</label>
-                <select id="laneDash">
-                    <option value="">Solid</option>
-                    <option value="60,150">Long Dashed</option>
-                    <option value="20,60">Short Dashed</option>
-                </select>
+                <!-- Lane Color -->
+                <label>Lane Color:</label><br>
+                <label>
+                    <input type="radio" name="laneColor" value="#ffffff" checked>
+                    White
+                </label>
+                <label>
+                    <input type="radio" name="laneColor" value="#ffff00">
+                    Yellow
+                </label><br>
+
+                <!-- Lane Width -->
+                <label>Lane Width:</label><br>
+                <label>
+                    <input type="radio" name="laneWidth" value="3" checked>
+                    <span style="display: inline-block; width: 50px; height: 3px; background: black; vertical-align: middle;"></span> 6"
+                </label><br>
+                <label>
+                    <input type="radio" name="laneWidth" value="10">
+                    <span style="display: inline-block; width: 50px; height: 10px; background: black; vertical-align: middle;"></span> 2'
+                </label><br>
+
+                <!-- Lane Dash -->
+                <label>Lane Style:</label><br>
+                <label>
+                    <input type="radio" name="laneDash" value="" checked>
+                    <span style="display: inline-block; width: 50px; height: 3px; background: black; vertical-align: middle;"></span> Solid
+                </label><br>
+                <label>
+                    <input type="radio" name="laneDash" value="60,150">
+                    <span style="display: inline-block; width: 50px; height: 3px; background: repeating-linear-gradient(90deg, black 0, black 10px, transparent 10px, transparent 25px); vertical-align: middle;"></span> Long Dashed
+                </label><br>
+                <label>
+                    <input type="radio" name="laneDash" value="20,60">
+                    <span style="display: inline-block; width: 50px; height: 3px; background: repeating-linear-gradient(90deg, black 0, black 5px, transparent 5px, transparent 15px); vertical-align: middle;"></span> Short Dashed
+                </label>
             </div>
-            <button id="drawLaneLine">Draw Lane Line</button>
+            <button id="drawLaneLine">Draw New Lane Line (L)</button>
             <button id="editLaneLine">Edit Selected Lane Line</button>
             <button id="saveLaneLineEdits">Save Lane Line Edits</button>
             <button id="removeLaneLine">Remove Selected Lane Line</button>
@@ -303,7 +351,7 @@
                 <input type="number" id="initialZoom" value="21" min="1"><br>
             </div>
             <button id="updateProjectSettings">Update View Coordinates</button>
-            
+
             <hr>
             <button id="deleteMarkers">Delete All Markers</button>
             <button id="deleteLaneLines">Delete All Lane Lines</button>
@@ -318,13 +366,7 @@
     <script src="https://rawcdn.githack.com/bbecquet/Leaflet.RotatedMarker/0.2.0/leaflet.rotatedMarker.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/leaflet-editable@1.2.0/src/Leaflet.Editable.js"></script>
-    <script src="https://ppete2.github.io/Leaflet.PolylineMeasure/Leaflet.PolylineMeasure.js"></script> 
-
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-easybutton@2/src/easy-button.css">
-    <script src="https://cdn.jsdelivr.net/npm/leaflet-easybutton@2/src/easy-button.js"></script>
-    <!-- Add Leaflet.Export and html2canvas -->
-    <script src="js/html2canvas.min.js"></script>
-    <script src="js/leaflet_export.js"></script>
+    <script src="https://ppete2.github.io/Leaflet.PolylineMeasure/Leaflet.PolylineMeasure.js"></script>
 
     <script>
         // --- Global Variables ---
@@ -337,14 +379,35 @@
         const pavementPolygons = [];
         let markersEnabled = true;
 
+        // Global variable to store the current settings
+        let currentSettings = {
+            color: document.querySelector('input[name="laneColor"]:checked').value,
+            stroke: parseInt(document.querySelector('input[name="laneWidth"]:checked').value, 10),
+            dash: document.querySelector('input[name="laneDash"]:checked').value
+        };
+
+        // Function to update selectors to match a line's properties
+        function setSelectorsFromLine(line) {
+            document.querySelector(`input[name="laneColor"][value="${line.myStyle.color}"]`).checked = true;
+            document.querySelector(`input[name="laneWidth"][value="${line.myStyle.weight}"]`).checked = true;
+            document.querySelector(`input[name="laneDash"][value="${line.myStyle.dashArray}"]`).checked = true;
+        }
+
+        // Function to restore selectors to the previous settings
+        function restoreSelectors() {
+            document.querySelector(`input[name="laneColor"][value="${currentSettings.color}"]`).checked = true;
+            document.querySelector(`input[name="laneWidth"][value="${currentSettings.stroke}"]`).checked = true;
+            document.querySelector(`input[name="laneDash"][value="${currentSettings.dash}"]`).checked = true;
+        }
+
         // --- Initialize Map & Layers ---
         const map = L.map('map', { maxZoom: 21, editable: true, zoomControl: false }).setView([41.4993, -81.6944], 21);
         L.control.zoom({
-                position: 'bottomright'
-            }).addTo(map);
+            position: 'bottomright'
+        }).addTo(map);
         map.editTools = new L.Editable(map);
         // Tile layer management (available tile layers)
-            const tileLayers = [];
+        const tileLayers = [];
         const esriTiles = L.tileLayer('https://gis.cuyahogacounty.us/server/rest/services/IMAGERY/2023_Fall_Aerial/MapServer/tile/{z}/{y}/{x}', {
             maxZoom: 21,
             zoomOffset: -10,
@@ -357,30 +420,30 @@
         });
 
         L.control.polylineMeasure({
-                'unit': 'landmiles',
-                'showClearControl': true,
-                measureControlLabel: '&#128207;',
-                clearMeasurementsOnStop: false,
-                position: 'topright',
-                measureControlTitleOn: 'Measure distance',
-                measureControlTitleOff: 'Clear measurements',
-                clearControlTitle: 'Clear measurements'
-            }).addTo(map);
+            'unit': 'landmiles',
+            'showClearControl': true,
+            measureControlLabel: '&#128207;',
+            clearMeasurementsOnStop: false,
+            position: 'topright',
+            measureControlTitleOn: 'Measure distance',
+            measureControlTitleOff: 'Clear measurements',
+            clearControlTitle: 'Clear measurements'
+        }).addTo(map);
 
         // When the measurement tool is cleared, disable marker adding.
-            map.on('polylinemeasure:clear', function () {
-                markersEnabled = true;
-            });
+        map.on('polylinemeasure:clear', function () {
+            markersEnabled = true;
+        });
 
-            // When the measurement tool is toggled off (status=false), disable marker adding;
-            // when toggled on (status=true), you can re-enable marker adding if you want.
-            map.on('polylinemeasure:toggle', function (e) {
-                if (e.status === true) {
-                    markersEnabled = false;
-                } else {
-                    markersEnabled = true;
-                }
-            });    
+        // When the measurement tool is toggled off (status=false), disable marker adding;
+        // when toggled on (status=true), you can re-enable marker adding if you want.
+        map.on('polylinemeasure:toggle', function (e) {
+            if (e.status === true) {
+                markersEnabled = false;
+            } else {
+                markersEnabled = true;
+            }
+        });
 
         tileLayers.push({ name: "Cuyahoga County", url: 'https://gis.cuyahogacounty.us/server/rest/services/IMAGERY/2023_Fall_Aerial/MapServer/tile/{z}/{y}/{x}', layer: esriTiles });
         tileLayers.push({ name: "OpenStreetMap", url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', layer: osmTiles });
@@ -390,19 +453,19 @@
         const pavementPolygonsLayer = L.featureGroup().addTo(map); // Underneath other features
         const laneLinesLayer = L.featureGroup().addTo(map);
         // Create a custom pane for pavement polygons with a lower z-index.
-            map.createPane('pavementPane');
-            map.getPane('pavementPane').style.zIndex = 250;
+        map.createPane('pavementPane');
+        map.getPane('pavementPane').style.zIndex = 250;
 
         // Create an overlay pane for all other features (higher z-index)
-            map.createPane('overlayPane');
-            map.getPane('overlayPane').style.zIndex = 400;    
+        map.createPane('overlayPane');
+        map.getPane('overlayPane').style.zIndex = 400;
 
         // Add our tile layers to the map (default visible ones)
-            tileLayers.forEach(tl => {
-                if (tl.visible) {
-                    tl.layer.addTo(map);
-                }
-            });
+        tileLayers.forEach(tl => {
+            if (tl.visible) {
+                tl.layer.addTo(map);
+            }
+        });
 
         // Overlay layers
         const markersLayer = L.featureGroup().addTo(map);
@@ -486,10 +549,10 @@
 
         function deselectAllPavementPolygons() {
             pavementPolygons.forEach(poly => {
-                poly.setStyle({ 
-                    dashArray: poly.myStyle.dashArray || "", 
-                    weight: poly.myStyle.weight || 0, 
-                    color: poly.myStyle.color || "transparent" 
+                poly.setStyle({
+                    dashArray: poly.myStyle.dashArray || "",
+                    weight: poly.myStyle.weight || 0,
+                    color: poly.myStyle.color || "transparent"
                 });
                 if (poly.disableEdit) {
                     poly.disableEdit();
@@ -551,8 +614,14 @@
         });
 
         // --- Pavement Markings ---
-        function getIconForZoom(zoom, iconUrl) {
-            let baseWidth = 30, baseHeight = 90;
+        function getIconForZoom(zoom, iconUrl, className = 'marker-icon-default') {
+            let baseHeight = 90, baseWidth = baseHeight / 3;
+
+            if (className == 'marker-icon-sign') {
+                baseWidth = 60;
+                baseHeight = 180;
+            }
+            
             // If iconUrl starts with "svg:", generate inline SVG.
             if (iconUrl !== null && iconUrl.indexOf("svg:") === 0) {
                 if (iconUrl === "svg:greenRect") {
@@ -566,6 +635,7 @@
                     iconUrl = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgContent);
                 }
             }
+
             const factor = Math.pow(0.5, 21 - zoom);
             return L.icon({
                 iconUrl: iconUrl,
@@ -579,7 +649,7 @@
             if (highlightCircle) { map.removeLayer(highlightCircle); }
             const factor = Math.pow(0.5, 21 - map.getZoom());
             highlightCircle = L.circleMarker(marker.getLatLng(), {
-                radius: 20 * factor,
+                radius: 40 * factor,
                 color: 'red',
                 weight: 2,
                 fill: false
@@ -606,20 +676,26 @@
         // Map click event for Pavement Markings and for deselecting lane/pavement polygons
         map.on('click', function (e) {
             if (!markersEnabled) return; // Do nothing if markers are disabled.
-                if (pavementTab.style.display !== "none") {
-                    // Only add marker if an icon is selected.
-                    if (!currentIconUrl) return;
-                    if (selectedMarker) { deselectMarker(); return; }
-                    const angle = parseInt(document.getElementById('angleValue').textContent);
-                    const marker = L.marker(e.latlng, {
-                        icon: getIconForZoom(map.getZoom(), currentIconUrl),
-                        rotationAngle: angle,
-                        rotationOrigin: 'center center',
-                        draggable: false,
-                        pane: 'overlayPane'
-                    }).addTo(map);
-                    marker.myIconUrl = currentIconUrl;
-                    markers.push(marker);
+            if (pavementTab.style.display !== "none") {
+                // Only add marker if an icon is selected.
+                if (!currentIconUrl) return;
+                if (selectedMarker) { deselectMarker(); return; }
+
+                if (document.querySelector(`.iconButton.selected`).classList.contains('sign')) {
+                    className = 'marker-icon-sign';
+                } else {
+                    className = 'marker-icon-default';
+                }
+                const angle = parseInt(document.getElementById('angleValue').textContent);
+                const marker = L.marker(e.latlng, {
+                    icon: getIconForZoom(map.getZoom(), currentIconUrl, className),
+                    rotationAngle: angle,
+                    rotationOrigin: 'center center',
+                    draggable: false,
+                    pane: 'overlayPane'
+                }).addTo(map);
+                marker.myIconUrl = currentIconUrl;
+                markers.push(marker);
                 marker.on('click', function (ev) {
                     L.DomEvent.stopPropagation(ev);
                     if (selectedMarker && selectedMarker !== marker) { deselectMarker(); }
@@ -638,6 +714,7 @@
                     selectedLaneLine.setStyle({ dashArray: selectedLaneLine.myStyle.dashArray });
                     if (selectedLaneLine.disableEdit) { selectedLaneLine.disableEdit(); }
                     selectedLaneLine = null;
+                    restoreSelectors(); // Restore selectors to previous settings
                 }
             }
             else if (pavementColorTab.style.display !== "none") {
@@ -687,17 +764,14 @@
         })();
 
         // --- Lane Lines Section ---
-        document.getElementById('drawLaneLine').addEventListener('click', function () {
-            startDrawingLaneLine();
-        });
         function startDrawingLaneLine() {
-            const laneColor = document.getElementById('laneColor').value;
-            const laneWidth = parseInt(document.getElementById('laneWidth').value, 10);
-            const laneDash = document.getElementById('laneDash').value;
+            const laneColor = document.querySelector('input[name="laneColor"]:checked').value;
+            const laneWidth = parseInt(document.querySelector('input[name="laneWidth"]:checked').value, 10);
+            const laneDash = document.querySelector('input[name="laneDash"]:checked').value;
             var polyline = map.editTools.startPolyline();
             polyline.on('editable:drawing:commit editable:drawing:end', function () {
                 const latlngs = polyline.getLatLngs();
-                if (!latlngs || latlngs.length < 2) { console.error("Invalid polyline"); return; }
+                // if (!latlngs || latlngs.length < 2) { console.error("Invalid polyline"); return; }
                 if (polyline.disableEdit) { polyline.disableEdit(); }
                 polyline.setStyle({ color: laneColor, weight: laneWidth, dashArray: laneDash, lineJoin: "miter", lineCap: "square" });
                 polyline.myStyle = { color: laneColor, weight: laneWidth, dashArray: laneDash, lineJoin: "miter", lineCap: "square" };
@@ -706,24 +780,35 @@
                 polyline.off('editable:drawing:commit editable:drawing:end');
                 polyline.on('click', function (ev) {
                     L.DomEvent.stopPropagation(ev);
-                    if (selectedLaneLine && selectedLaneLine !== polyline) { selectedLaneLine.setStyle({ dashArray: selectedLaneLine.myStyle.dashArray }); }
+                    if (selectedLaneLine && selectedLaneLine !== polyline) {
+                        selectedLaneLine.setStyle({
+                            dashArray: selectedLaneLine.myStyle.dashArray,
+                            color: selectedLaneLine.myStyle.color
+                        });
+                        selectedLaneLine.disableEdit(); // Disable editing for previously selected line
+                        restoreSelectors(); // Restore selectors to previous settings
+                    }
                     selectedLaneLine = polyline;
-                    polyline.setStyle({ dashArray: "10,10" });
+                    setSelectorsFromLine(polyline); // Update selectors to match the selected line
+                    polyline.enableEdit(); // Automatically enable editing for the clicked line
                 });
                 // Automatically allow new line drawing.
                 startDrawingLaneLine();
                 addLaneLineToLayer(polyline);
             });
         }
+        document.getElementById('drawLaneLine').addEventListener('click', function () {
+            startDrawingLaneLine();
+        });
         document.getElementById('editLaneLine').addEventListener('click', function () {
             if (selectedLaneLine) { selectedLaneLine.enableEdit(); }
         });
         document.getElementById('saveLaneLineEdits').addEventListener('click', function () {
             if (selectedLaneLine) {
                 selectedLaneLine.disableEdit();
-                const newColor = document.getElementById('laneColor').value;
-                const newWidth = parseInt(document.getElementById('laneWidth').value, 10);
-                const newDash = document.getElementById('laneDash').value;
+                const newColor = document.querySelector('input[name="laneColor"]:checked').value;
+                const newWidth = parseInt(document.querySelector('input[name="laneWidth"]:checked').value, 10);
+                const newDash = document.querySelector('input[name="laneDash"]:checked').value;
                 selectedLaneLine.myStyle = { color: newColor, weight: newWidth, dashArray: newDash, lineJoin: "miter", lineCap: "square" };
                 selectedLaneLine.setStyle({ color: newColor, weight: newWidth, dashArray: newDash, lineJoin: "miter", lineCap: "square" });
             }
@@ -737,68 +822,107 @@
             }
         });
 
+        // Function to apply style changes to the selected line
+        function updateSelectedLineStyle() {
+            if (selectedLaneLine) {
+                const newColor = document.querySelector('input[name="laneColor"]:checked').value;
+                const newWidth = parseInt(document.querySelector('input[name="laneWidth"]:checked').value, 10);
+                const newDash = document.querySelector('input[name="laneDash"]:checked').value;
+
+                selectedLaneLine.setStyle({
+                    color: newColor,
+                    weight: newWidth,
+                    dashArray: newDash,
+                    lineJoin: "miter",
+                    lineCap: "square"
+                });
+
+                // Update the saved style for persistence
+                selectedLaneLine.myStyle = {
+                    color: newColor,
+                    weight: newWidth,
+                    dashArray: newDash,
+                    lineJoin: "miter",
+                    lineCap: "square"
+                };
+            }
+        }
+
+        // Add event listeners to update the selected line immediately
+        document.querySelectorAll('input[name="laneColor"]').forEach(input => {
+            input.addEventListener('change', updateSelectedLineStyle);
+        });
+
+        document.querySelectorAll('input[name="laneWidth"]').forEach(input => {
+            input.addEventListener('change', updateSelectedLineStyle);
+        });
+
+        document.querySelectorAll('input[name="laneDash"]').forEach(input => {
+            input.addEventListener('change', updateSelectedLineStyle);
+        });
+
         // --- Pavement Color (Polygon) Section ---
         document.getElementById('drawPavementPolygon').addEventListener('click', function () {
-                const strokeColor = document.getElementById('pavementStroke').value;
-                const fillColor = document.getElementById('pavementFill').value;
-                const fillOpacity = parseFloat(document.getElementById('pavementFillOpacity').value);
-                var polygon = map.editTools.startPolygon();
-                polygon.on('editable:drawing:commit editable:drawing:end', function () {
-                    const latlngs = polygon.getLatLngs()[0] || polygon.getLatLngs();
-                    if (!latlngs || latlngs.length < 3) { console.error("Invalid polygon"); return; }
-                    if (polygon.disableEdit) { polygon.disableEdit(); }
-                    polygon.setStyle({
-                        color: strokeColor,
-                        weight: 0,
-                        fillColor: fillColor,
-                        fillOpacity: fillOpacity,
-                        pane: 'pavementPane'
-                    });
-                    polygon.myStyle = {
-                        color: strokeColor,
-                        weight: 0,
-                        fillColor: fillColor,
-                        fillOpacity: fillOpacity,
-                        pane: 'pavementPane'
-                    };
-                    pavementPolygonsLayer.addLayer(polygon);
-                    pavementPolygons.push(polygon);
-                    polygon.off('editable:drawing:commit editable:drawing:end');
-                    polygon.on('click', function (ev) {
-                        if (document.getElementById('pavementColorTab').style.display !== "none") {
-                            L.DomEvent.stopPropagation(ev);
-                        }
-                        deselectAllPavementPolygons(); // Deselect all polygons first
-                        selectedPavementPolygon = polygon;
-                        polygon.setStyle({ dashArray: "10,10", weight: 5, color: 'red' });
-                    });
-                    addPavementPolygonToLayer(polygon);
+            const strokeColor = document.getElementById('pavementStroke').value;
+            const fillColor = document.getElementById('pavementFill').value;
+            const fillOpacity = parseFloat(document.getElementById('pavementFillOpacity').value);
+            var polygon = map.editTools.startPolygon();
+            polygon.on('editable:drawing:commit editable:drawing:end', function () {
+                const latlngs = polygon.getLatLngs()[0] || polygon.getLatLngs();
+                if (!latlngs || latlngs.length < 3) { console.error("Invalid polygon"); return; }
+                if (polygon.disableEdit) { polygon.disableEdit(); }
+                polygon.setStyle({
+                    color: strokeColor,
+                    weight: 0,
+                    fillColor: fillColor,
+                    fillOpacity: fillOpacity,
+                    pane: 'pavementPane'
                 });
+                polygon.myStyle = {
+                    color: strokeColor,
+                    weight: 0,
+                    fillColor: fillColor,
+                    fillOpacity: fillOpacity,
+                    pane: 'pavementPane'
+                };
+                pavementPolygonsLayer.addLayer(polygon);
+                pavementPolygons.push(polygon);
+                polygon.off('editable:drawing:commit editable:drawing:end');
+                polygon.on('click', function (ev) {
+                    if (document.getElementById('pavementColorTab').style.display !== "none") {
+                        L.DomEvent.stopPropagation(ev);
+                    }
+                    deselectAllPavementPolygons(); // Deselect all polygons first
+                    selectedPavementPolygon = polygon;
+                    polygon.setStyle({ dashArray: "20,20", weight: 5, color: 'red' });
+                });
+                addPavementPolygonToLayer(polygon);
             });
+        });
 
         document.getElementById('editPavementPolygon').addEventListener('click', function () {
             if (selectedPavementPolygon) { selectedPavementPolygon.enableEdit(); }
         });
 
         document.getElementById('pavementFill').addEventListener('change', function () {
-                const newFillColor = this.value;
-                document.getElementById('pavementFill').textContent = this.value;
-                if (selectedPavementPolygon) {
-                    selectedPavementPolygon.setStyle({ fillColor: newFillColor });
-                    // Also update the saved style so future edits persist the new opacity.
-                    selectedPavementPolygon.myStyle.fillColor = newFillColor;
-                }
-            }); 
-            
-            document.getElementById('pavementFillOpacity').addEventListener('input', function () {
-                const newOpacity = parseFloat(this.value);
-                document.getElementById('pavementFillOpacityValue').textContent = this.value;
-                if (selectedPavementPolygon) {
-                    selectedPavementPolygon.setStyle({ fillOpacity: newOpacity });
-                    // Also update the saved style so future edits persist the new opacity.
-                    selectedPavementPolygon.myStyle.fillOpacity = newOpacity;
-                }
-            });
+            const newFillColor = this.value;
+            document.getElementById('pavementFill').textContent = this.value;
+            if (selectedPavementPolygon) {
+                selectedPavementPolygon.setStyle({ fillColor: newFillColor });
+                // Also update the saved style so future edits persist the new opacity.
+                selectedPavementPolygon.myStyle.fillColor = newFillColor;
+            }
+        });
+
+        document.getElementById('pavementFillOpacity').addEventListener('input', function () {
+            const newOpacity = parseFloat(this.value);
+            document.getElementById('pavementFillOpacityValue').textContent = this.value;
+            if (selectedPavementPolygon) {
+                selectedPavementPolygon.setStyle({ fillOpacity: newOpacity });
+                // Also update the saved style so future edits persist the new opacity.
+                selectedPavementPolygon.myStyle.fillOpacity = newOpacity;
+            }
+        });
 
         document.getElementById('removePavementPolygon').addEventListener('click', function () {
             if (selectedPavementPolygon) {
@@ -902,7 +1026,7 @@
                     });
                 }
             });
-            
+
             // Project settings:
             const project = {
                 name: document.getElementById('projectNameInput').value || document.getElementById('projectNameLabel').textContent,
@@ -921,9 +1045,9 @@
             // Get the project name from the input or label.
             const projectName = document.getElementById('projectNameInput').value || document.getElementById('projectNameLabel').textContent;
             // Replace any character that isn't a letter, number, dash, or underscore with an underscore.
-            const safeProjectName = projectName.replace(/[^a-zA-Z0-9-_]/g, '_')+'.geojson';
+            const safeProjectName = projectName.replace(/[^a-zA-Z0-9-_]/g, '_') + '.geojson';
             // Append the .geojson extension.
-            
+
 
             const geojson = { type: "FeatureCollection", features: features, project: project };
             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(geojson));
@@ -938,159 +1062,165 @@
             document.getElementById('loadGeoJson').click();
         });
         document.getElementById('loadGeoJson').addEventListener('change', function (e) {
-                const file = e.target.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = function (e) {
-                    try {
-                        const geojson = JSON.parse(e.target.result);
-                        geojson.features.forEach(feature => {
-                            if (feature.geometry.type === "Point" && feature.properties.type === "marking") {
-                                const coords = feature.geometry.coordinates;
-                                const latlng = L.latLng(coords[1], coords[0]);
-                                const rotation = feature.properties.rotation;
-                                const iconUrl = feature.properties.icon;
-                                const marker = L.marker(latlng, {
-                                    icon: getIconForZoom(map.getZoom(), iconUrl),
-                                    rotationAngle: rotation,
-                                    rotationOrigin: 'center center',
-                                    draggable: false,
-                                    pane: 'overlayPane'
-                                }).addTo(map);
-                                marker.myIconUrl = iconUrl;
-                                markers.push(marker);
-                                marker.on('click', function (ev) {
-                                    L.DomEvent.stopPropagation(ev);
-                                    if (selectedMarker && selectedMarker !== marker) {
-                                        deselectMarker();
-                                    }
-                                    selectedMarker = marker;
-                                    marker.dragging.enable();
-                                    highlightMarker(marker);
-                                    document.getElementById('angleValue').textContent = Math.round(marker.options.rotationAngle) + '°';
-                                    const rad = marker.options.rotationAngle * Math.PI / 180;
-                                    document.getElementById('angleLine').setAttribute('x2', 50 + 40 * Math.sin(rad));
-                                    document.getElementById('angleLine').setAttribute('y2', 50 - 40 * Math.cos(rad));
-                                });
-                                addMarkerToLayer(marker);
-                            } else if (feature.geometry.type === "LineString" && feature.properties.type === "lane") {
-                                const coords = feature.geometry.coordinates;
-                                const latlngs = coords.map(c => L.latLng(c[1], c[0]));
-                                const style = feature.properties.style;
-                                const polyline = L.polyline(latlngs, {
-                                    color: style.color,
-                                    weight: style.weight,
-                                    dashArray: style.dashArray,
-                                    lineJoin: style.lineJoin,
-                                    lineCap: style.lineCap,
-                                    pane: 'overlayPane'
-                                }).addTo(laneLinesLayer);
-                                polyline.myStyle = style;
-                                laneLines.push(polyline);
-                                polyline.on('click', function (ev) {
-                                    L.DomEvent.stopPropagation(ev);
-                                    if (selectedLaneLine && selectedLaneLine !== polyline) {
-                                        selectedLaneLine.setStyle({ dashArray: selectedLaneLine.myStyle.dashArray });
-                                    }
-                                    selectedLaneLine = polyline;
-                                    polyline.setStyle({ dashArray: "10,10" });
-                                });
-                                addLaneLineToLayer(polyline);
-                            } else if (feature.geometry.type === "Polygon" && feature.properties.type === "pavement") {
-                                const coords = feature.geometry.coordinates[0]; // assume single-ring
-                                const latlngs = coords.map(c => L.latLng(c[1], c[0]));
-                                const style = feature.properties.style;
-                                const poly = L.polygon(latlngs, {
-                                    color: style.color,
-                                    weight: style.weight,
-                                    fillColor: style.fillColor,
-                                    fillOpacity: style.fillOpacity,
-                                    pane: 'pavementPane'
-                                }).addTo(pavementPolygonsLayer);
-                                poly.myStyle = style;
-                                pavementPolygons.push(poly);
-                                poly.on('click', function (ev) {
-                                    L.DomEvent.stopPropagation(ev);
-                                    deselectAllPavementPolygons(); // Deselect all polygons first
-                                    if (selectedPavementPolygon && selectedPavementPolygon !== poly) {
-                                        selectedPavementPolygon.setStyle({ dashArray: selectedPavementPolygon.myStyle.dashArray || "" });
-                                    }
-                                    selectedPavementPolygon = poly;
-                                    poly.setStyle({ dashArray: "10,10", weight: 5, color: 'red' });
-                                });
-                                poly.disableEdit();
-                                poly.options.interactive = false;
-                                if (poly._path) {
-                                    poly._path.style.pointerEvents = "none";
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                try {
+                    const geojson = JSON.parse(e.target.result);
+                    geojson.features.forEach(feature => {
+                        if (feature.geometry.type === "Point" && feature.properties.type === "marking") {
+                            const coords = feature.geometry.coordinates;
+                            const latlng = L.latLng(coords[1], coords[0]);
+                            const rotation = feature.properties.rotation;
+                            const iconUrl = feature.properties.icon;
+                            const marker = L.marker(latlng, {
+                                icon: getIconForZoom(map.getZoom(), iconUrl),
+                                rotationAngle: rotation,
+                                rotationOrigin: 'center center',
+                                draggable: false,
+                                pane: 'overlayPane'
+                            }).addTo(map);
+                            marker.myIconUrl = iconUrl;
+                            markers.push(marker);
+                            marker.on('click', function (ev) {
+                                L.DomEvent.stopPropagation(ev);
+                                if (selectedMarker && selectedMarker !== marker) {
+                                    deselectMarker();
                                 }
-                                addPavementPolygonToLayer(poly);
+                                selectedMarker = marker;
+                                marker.dragging.enable();
+                                highlightMarker(marker);
+                                document.getElementById('angleValue').textContent = Math.round(marker.options.rotationAngle) + '°';
+                                const rad = marker.options.rotationAngle * Math.PI / 180;
+                                document.getElementById('angleLine').setAttribute('x2', 50 + 40 * Math.sin(rad));
+                                document.getElementById('angleLine').setAttribute('y2', 50 - 40 * Math.cos(rad));
+                            });
+                            addMarkerToLayer(marker);
+                        } else if (feature.geometry.type === "LineString" && feature.properties.type === "lane") {
+                            const coords = feature.geometry.coordinates;
+                            const latlngs = coords.map(c => L.latLng(c[1], c[0]));
+                            const style = feature.properties.style;
+                            const polyline = L.polyline(latlngs, {
+                                color: style.color,
+                                weight: style.weight,
+                                dashArray: style.dashArray,
+                                lineJoin: style.lineJoin,
+                                lineCap: style.lineCap,
+                                pane: 'overlayPane'
+                            }).addTo(laneLinesLayer);
+                            polyline.myStyle = style;
+                            laneLines.push(polyline);
+                            polyline.on('click', function (ev) {
+                                L.DomEvent.stopPropagation(ev);
+                                if (selectedLaneLine && selectedLaneLine !== polyline) {
+                                    selectedLaneLine.setStyle({ dashArray: selectedLaneLine.myStyle.dashArray });
+                                }
+                                selectedLaneLine = polyline;
+                                // polyline.setStyle({ dashArray: "20,20" });
+                                polyline.enableEdit(); // Automatically enable editing for the clicked line
+                            });
+                            addLaneLineToLayer(polyline);
+                        } else if (feature.geometry.type === "Polygon" && feature.properties.type === "pavement") {
+                            const coords = feature.geometry.coordinates[0]; // assume single-ring
+                            const latlngs = coords.map(c => L.latLng(c[1], c[0]));
+                            const style = feature.properties.style;
+                            const poly = L.polygon(latlngs, {
+                                color: style.color,
+                                weight: style.weight,
+                                fillColor: style.fillColor,
+                                fillOpacity: style.fillOpacity,
+                                pane: 'pavementPane'
+                            }).addTo(pavementPolygonsLayer);
+                            poly.myStyle = style;
+                            pavementPolygons.push(poly);
+                            poly.on('click', function (ev) {
+                                L.DomEvent.stopPropagation(ev);
+                                deselectAllPavementPolygons(); // Deselect all polygons first
+                                if (selectedPavementPolygon && selectedPavementPolygon !== poly) {
+                                    selectedPavementPolygon.setStyle({ dashArray: selectedPavementPolygon.myStyle.dashArray || "" });
+                                }
+                                selectedPavementPolygon = poly;
+                                poly.setStyle({ dashArray: "20,20", weight: 5, color: 'red' });
+                            });
+                            poly.disableEdit();
+                            poly.options.interactive = false;
+                            if (poly._path) {
+                                poly._path.style.pointerEvents = "none";
                             }
-                        });
-                        
-                        // Update project settings if available.
-                        if (geojson.project) {
-                            // document.getElementById('projectNameLabel').textContent = geojson.project.name || "";
-                            // document.getElementById('projectNameInput').value = geojson.project.name || "";
-                            // Use the file name if the loaded geojson has no project name
-                            const fileName = file.name;
-                            const baseName = fileName.replace(/\.[^/.]+$/, ""); // remove file extension
-
-                            if (!geojson.project || !geojson.project.name || !geojson.project.name.trim()) {
-                                document.getElementById('projectNameLabel').textContent = baseName;
-                                document.getElementById('projectNameInput').value = baseName;
-                            } else {
-                                document.getElementById('projectNameLabel').textContent = geojson.project.name;
-                                document.getElementById('projectNameInput').value = geojson.project.name;
-                            }
-
-                            document.getElementById('initialLat').value = geojson.project.initialCenter ? geojson.project.initialCenter[0] : "";
-                            document.getElementById('initialLng').value = geojson.project.initialCenter ? geojson.project.initialCenter[1] : "";
-                            document.getElementById('initialZoom').value = geojson.project.initialZoom || 21;
-                            // Update tile layer checkboxes.
-                            
-                            // Set map view to project initial settings.
-                            map.setView(geojson.project.initialCenter, geojson.project.initialZoom);
+                            addPavementPolygonToLayer(poly);
                         }
-                        // Zoom to features if project settings not provided.
-                        else {
-                            let bounds = new L.LatLngBounds();
-                            markers.forEach(m => bounds.extend(m.getLatLng()));
-                            laneLines.forEach(l => l.getLatLngs().forEach(ll => bounds.extend(ll)));
-                            pavementPolygons.forEach(p => p.getLatLngs()[0].forEach(ll => bounds.extend(ll)));
-                            if (bounds.isValid()) { map.fitBounds(bounds); }
+                    });
+
+                    // Update project settings if available.
+                    if (geojson.project) {
+                        // document.getElementById('projectNameLabel').textContent = geojson.project.name || "";
+                        // document.getElementById('projectNameInput').value = geojson.project.name || "";
+                        // Use the file name if the loaded geojson has no project name
+                        const fileName = file.name;
+                        const baseName = fileName.replace(/\.[^/.]+$/, ""); // remove file extension
+
+                        if (!geojson.project || !geojson.project.name || !geojson.project.name.trim()) {
+                            document.getElementById('projectNameLabel').textContent = baseName;
+                            document.getElementById('projectNameInput').value = baseName;
+                        } else {
+                            document.getElementById('projectNameLabel').textContent = geojson.project.name;
+                            document.getElementById('projectNameInput').value = geojson.project.name;
                         }
-                    } catch (err) {
-                        alert("Error reading GeoJSON: " + err);
+
+                        document.getElementById('initialLat').value = geojson.project.initialCenter ? geojson.project.initialCenter[0] : "";
+                        document.getElementById('initialLng').value = geojson.project.initialCenter ? geojson.project.initialCenter[1] : "";
+                        document.getElementById('initialZoom').value = geojson.project.initialZoom || 21;
+                        // Update tile layer checkboxes.
+
+                        // Set map view to project initial settings.
+                        map.setView(geojson.project.initialCenter, geojson.project.initialZoom);
                     }
-                };
-                reader.readAsText(file);
-            });
+                    // Zoom to features if project settings not provided.
+                    else {
+                        let bounds = new L.LatLngBounds();
+                        markers.forEach(m => bounds.extend(m.getLatLng()));
+                        laneLines.forEach(l => l.getLatLngs().forEach(ll => bounds.extend(ll)));
+                        pavementPolygons.forEach(p => p.getLatLngs()[0].forEach(ll => bounds.extend(ll)));
+                        if (bounds.isValid()) { map.fitBounds(bounds); }
+                    }
+                } catch (err) {
+                    alert("Error reading GeoJSON: " + err);
+                }
+            };
+            reader.readAsText(file);
+        });
 
-           
+
         // --- Tile Layer Management in Project Settings ---
-            // const tileLayerCheckboxes = document.querySelectorAll('.tileLayerCheckbox');
-            // tileLayerCheckboxes.forEach(cb => {
-            //     cb.addEventListener('change', function () {
-            //         const name = this.getAttribute('data-name');
-            //         tileLayers.forEach(t => {
-            //             if (t.name === name) {
-            //                 t.visible = this.checked;
-            //                 if (this.checked) { t.layer.addTo(map); }
-            //                 else { map.removeLayer(t.layer); }
-            //             }
-            //         });
-            //     });
-            // });    
+        // const tileLayerCheckboxes = document.querySelectorAll('.tileLayerCheckbox');
+        // tileLayerCheckboxes.forEach(cb => {
+        //     cb.addEventListener('change', function () {
+        //         const name = this.getAttribute('data-name');
+        //         tileLayers.forEach(t => {
+        //             if (t.name === name) {
+        //                 t.visible = this.checked;
+        //                 if (this.checked) { t.layer.addTo(map); }
+        //                 else { map.removeLayer(t.layer); }
+        //             }
+        //         });
+        //     });
+        // });    
 
         // --- Zoom-dependent Updates ---
         map.on('zoomend', function () {
             const currentZoom = map.getZoom();
             markers.forEach(marker => {
-                marker.setIcon(getIconForZoom(currentZoom, marker.myIconUrl));
+                if (marker.myIconUrl.includes('MUTCD')) {
+                    className = 'marker-icon-sign';
+                } else {
+                    className = 'marker-icon-default';
+                }
+                marker.setIcon(getIconForZoom(currentZoom, marker.myIconUrl, className));
             });
             if (highlightCircle && selectedMarker) {
                 const factor = Math.pow(0.5, 21 - currentZoom);
-                highlightCircle.setRadius(20 * factor);
+                highlightCircle.setRadius(40 * factor);
                 highlightCircle.setLatLng(selectedMarker.getLatLng());
             }
             laneLines.forEach(line => {
@@ -1114,153 +1244,163 @@
         });
 
         function updatePavementPaneInteractivity() {
-                // When pavementColor tab is active, interactive is true; otherwise false.
-                const interactive = (pavementColorTab.style.display !== "none");
-                pavementPolygons.forEach(poly => {
-                    if (poly.setInteractive) {
-                        poly.disable();
-                    } else {
-                        // Fallback: update the option and force a redraw.
-                        poly.options.interactive = interactive;
-                        if (poly.redraw) { poly.redraw(); }
-                    }
-                });
-            }
-            
-
-        function disablePavementEditing() {
-                pavementPolygons.forEach(poly => {
-                    if (poly.disableEdit) {
-                        poly.disableEdit();  // turn off editing handles if they were active
-                    }
-                    // Mark the polygon as non-interactive so clicks fall through
-                    poly.options.interactive = false;
-                    if (poly._path) {
-                        poly._path.style.pointerEvents = "none";
-                    }
-                });
-            }
-        disablePavementEditing();    
-
-            function enablePavementEditing() {
-                pavementPolygons.forEach(poly => {
-                    // Mark the polygon as interactive so it can be selected/edited
-                    poly.options.interactive = true;
-                    if (poly._path) {
-                        poly._path.style.pointerEvents = "auto";
-                    }
-                });
-            }
-            
-        // When the label is clicked, hide it and show the input and OK button.
-            // document.getElementById('projectNameLabel').addEventListener('click', function () {
-            //     this.style.display = 'none';
-            //     const input = document.getElementById('projectNameInput');
-            //     const okButton = document.getElementById('projectNameOk');
-            //     input.style.display = 'inline-block';
-            //     okButton.style.display = 'inline-block';
-            //     input.focus();
-            // });
-
-            // When the OK button is clicked, update the label and hide the input.
-            document.getElementById('projectNameOk').addEventListener('click', function () {
-                const input = document.getElementById('projectNameInput');
-                const label = document.getElementById('projectNameLabel');
-                label.textContent = input.value;
-                input.style.display = 'none';
-                this.style.display = 'none';
-                label.style.display = 'inline-block';
-                document.getElementById('projectNameEdit').style.display = 'inline-block';
-            });   
-            
-            
-        document.getElementById('updateProjectSettings').addEventListener('click', function () {
-                const center = map.getCenter();
-                document.getElementById('initialLat').value = center.lat.toFixed(6);
-                document.getElementById('initialLng').value = center.lng.toFixed(6);
-                document.getElementById('initialZoom').value = map.getZoom();
-            });    
-
-        document.addEventListener('keydown', function (e) {
-                if (e.key === 'l') {
-                    // Call the function that begins drawing a new lane line.
-                    startDrawingLaneLine();
-                }
-            });    
-
-        // In your script, add an event listener to remove all features:
-            document.getElementById('clearMap').addEventListener('click', function () {
-                if (confirm('Are you sure you want to clear the map? This will remove all markers, lane lines, and pavement polygons.')) {
-                    // Remove all markers
-                    markers.forEach(m => map.removeLayer(m));
-                    markers.length = 0;
-
-                    // Remove all lane lines
-                    laneLines.forEach(l => map.removeLayer(l));
-                    laneLines.length = 0;
-
-                    // Remove all pavement polygons
-                    pavementPolygons.forEach(p => map.removeLayer(p));
-                    pavementPolygons.length = 0;
-                }
-            });  
-
-            // A snippet to handle clicking the edit icon.
-                // It hides the label & icon, shows the text input & OK button for editing.
-                document.getElementById('projectNameEdit').addEventListener('click', function () {
-                    document.getElementById('projectNameLabel').style.display = 'none';
-                    this.style.display = 'none';
-                    const input = document.getElementById('projectNameInput');
-                    const okButton = document.getElementById('projectNameOk');
-                    input.style.display = 'inline-block';
-                    okButton.style.display = 'inline-block';
-                    input.focus();
-                });  
-
-            // Toggle a 'collapsed' class on the #control element when the collapse button is clicked.
-                document.getElementById('collapseButton').addEventListener('click', function () {
-                    const controlBox = document.getElementById('control');
-                    controlBox.classList.toggle('collapsed');
-                });    
-
-            document.getElementById('deleteMarkers').addEventListener('click', function () {
-                if (confirm('Are you sure you want to delete all markers?')) {
-                    markers.forEach(m => map.removeLayer(m));
-                    markers.length = 0; // clear the array
+            // When pavementColor tab is active, interactive is true; otherwise false.
+            const interactive = (pavementColorTab.style.display !== "none");
+            pavementPolygons.forEach(poly => {
+                if (poly.setInteractive) {
+                    poly.disable();
+                } else {
+                    // Fallback: update the option and force a redraw.
+                    poly.options.interactive = interactive;
+                    if (poly.redraw) { poly.redraw(); }
                 }
             });
+        }
 
-            document.getElementById('deleteLaneLines').addEventListener('click', function () {
-                if (confirm('Are you sure you want to delete all lane lines?')) {
-                    laneLines.forEach(l => map.removeLayer(l));
-                    laneLines.length = 0; // clear the array
+
+        function disablePavementEditing() {
+            pavementPolygons.forEach(poly => {
+                if (poly.disableEdit) {
+                    poly.disableEdit();  // turn off editing handles if they were active
                 }
-            });    
+                // Mark the polygon as non-interactive so clicks fall through
+                poly.options.interactive = false;
+                if (poly._path) {
+                    poly._path.style.pointerEvents = "none";
+                }
+            });
+        }
+        disablePavementEditing();
 
-        // Add export image button to the map
-        L.easyButton({ 
-            position: 'topright', 
-            states: [{                 // specify different icons and responses for your button
-                stateName: 'get-center',
-                onClick: function (btn, map) {
-                    map.downloadExport({
-                        container: map._container,
-                        format: "image/jpg",
-                        fileName: "map.jpg",
-                        exclude: [
-                            '.leaflet-control-zoom',
-                            '.leaflet-control',
-                            '.leaflet-control-attribution',
-                            '.layercontrol',
-                            '.leaflet-control-layers',
-                            '.no-scrolling-clicking'
-                        ]
-                    });
-                },
-                title: 'show me the middle',
-                icon: 'fa-camera'
-            }]
-            }).addTo(map);
+        function enablePavementEditing() {
+            pavementPolygons.forEach(poly => {
+                // Mark the polygon as interactive so it can be selected/edited
+                poly.options.interactive = true;
+                if (poly._path) {
+                    poly._path.style.pointerEvents = "auto";
+                }
+            });
+        }
+
+        // When the label is clicked, hide it and show the input and OK button.
+        // document.getElementById('projectNameLabel').addEventListener('click', function () {
+        //     this.style.display = 'none';
+        //     const input = document.getElementById('projectNameInput');
+        //     const okButton = document.getElementById('projectNameOk');
+        //     input.style.display = 'inline-block';
+        //     okButton.style.display = 'inline-block';
+        //     input.focus();
+        // });
+
+        // When the OK button is clicked, update the label and hide the input.
+        document.getElementById('projectNameOk').addEventListener('click', function () {
+            const input = document.getElementById('projectNameInput');
+            const label = document.getElementById('projectNameLabel');
+            label.textContent = input.value;
+            input.style.display = 'none';
+            this.style.display = 'none';
+            label.style.display = 'inline-block';
+            document.getElementById('projectNameEdit').style.display = 'inline-block';
+        });
+
+
+        document.getElementById('updateProjectSettings').addEventListener('click', function () {
+            const center = map.getCenter();
+            document.getElementById('initialLat').value = center.lat.toFixed(6);
+            document.getElementById('initialLng').value = center.lng.toFixed(6);
+            document.getElementById('initialZoom').value = map.getZoom();
+        });
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'l') {
+                // Call the function that begins drawing a new lane line.
+                startDrawingLaneLine();
+            }
+        });
+
+        // In your script, add an event listener to remove all features:
+        document.getElementById('clearMap').addEventListener('click', function () {
+            if (confirm('Are you sure you want to clear the map? This will remove all markers, lane lines, and pavement polygons.')) {
+                // Remove all markers
+                markers.forEach(m => map.removeLayer(m));
+                markers.length = 0;
+
+                // Remove all lane lines
+                laneLines.forEach(l => map.removeLayer(l));
+                laneLines.length = 0;
+
+                // Remove all pavement polygons
+                pavementPolygons.forEach(p => map.removeLayer(p));
+                pavementPolygons.length = 0;
+            }
+        });
+
+        // A snippet to handle clicking the edit icon.
+        // It hides the label & icon, shows the text input & OK button for editing.
+        document.getElementById('projectNameEdit').addEventListener('click', function () {
+            document.getElementById('projectNameLabel').style.display = 'none';
+            this.style.display = 'none';
+            const input = document.getElementById('projectNameInput');
+            const okButton = document.getElementById('projectNameOk');
+            input.style.display = 'inline-block';
+            okButton.style.display = 'inline-block';
+            input.focus();
+        });
+
+        // Toggle a 'collapsed' class on the #control element when the collapse button is clicked.
+        document.getElementById('collapseButton').addEventListener('click', function () {
+            const controlBox = document.getElementById('control');
+            controlBox.classList.toggle('collapsed');
+        });
+
+        document.getElementById('deleteMarkers').addEventListener('click', function () {
+            if (confirm('Are you sure you want to delete all markers?')) {
+                markers.forEach(m => map.removeLayer(m));
+                markers.length = 0; // clear the array
+            }
+        });
+
+        document.getElementById('deleteLaneLines').addEventListener('click', function () {
+            if (confirm('Are you sure you want to delete all lane lines?')) {
+                laneLines.forEach(l => map.removeLayer(l));
+                laneLines.length = 0; // clear the array
+            }
+        });
+
+        // Function to deselect all features
+        function deselectAllFeatures() {
+            if (selectedLaneLine) {
+                selectedLaneLine.setStyle({
+                    dashArray: selectedLaneLine.myStyle.dashArray,
+                    color: selectedLaneLine.myStyle.color
+                });
+                selectedLaneLine.disableEdit();
+                selectedLaneLine = null;
+                restoreSelectors(); // Restore selectors to previous settings
+            }
+
+            if (selectedMarker) {
+                deselectMarker();
+            }
+
+            if (selectedPavementPolygon) {
+                selectedPavementPolygon.setStyle({
+                    dashArray: selectedPavementPolygon.myStyle.dashArray || "",
+                    weight: 0
+                });
+                if (selectedPavementPolygon.disableEdit) {
+                    selectedPavementPolygon.disableEdit();
+                }
+                selectedPavementPolygon = null;
+            }
+        }
+
+        // Add event listener for the "Esc" key
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') {
+                deselectAllFeatures();
+            }
+        });
     </script>
 </body>
 

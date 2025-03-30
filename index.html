@@ -372,8 +372,8 @@
             <button id="deleteMarkers">Delete All Markers</button>
             <button id="deleteLaneLines">Delete All Lane Lines</button>
             <button id="clearMap">Clear Map</button>
-        </div><button id="loadGeoJsonBtn">&#128194; Load GeoJSON</button>
-        <button id="saveGeoJson">&#128190; Save GeoJSON</button>
+        </div><button id="loadGeoJsonBtn">&#128194; Load Design .geojson file</button>
+        <button id="saveGeoJson">&#128190; Save Design .geojson file</button>
         <input type="file" id="loadGeoJson" style="display: none;">
     </div>
 
@@ -591,6 +591,7 @@
             pavementColorTab.style.display = "none";
             disablePavementEditing();
             deselectAllPavementPolygons();
+            deselectAllLineStrings();
         });
 
         tabLaneLines.addEventListener('click', function () {
@@ -617,6 +618,7 @@
             enablePavementEditing();
             tabProjectSettings.classList.remove('active');
             projectSettingsTab.style.display = "none";
+            deselectAllLineStrings();
         });
 
         tabProjectSettings.addEventListener('click', function () {
@@ -630,6 +632,7 @@
             projectSettingsTab.style.display = "block";
             disablePavementEditing();
             deselectAllPavementPolygons();
+            deselectAllLineStrings();
         });
 
         // --- Pavement Markings ---
@@ -692,6 +695,21 @@
             });
         });
 
+        // Function to deselect all line strings
+        function deselectAllLineStrings() {
+            if (selectedLaneLine) {
+                selectedLaneLine.setStyle({
+                    dashArray: selectedLaneLine.myStyle.dashArray,
+                    color: selectedLaneLine.myStyle.color
+                });
+                if (selectedLaneLine.disableEdit) {
+                    selectedLaneLine.disableEdit();
+                }
+                selectedLaneLine = null;
+                restoreSelectors(); // Restore selectors to previous settings
+            }
+        }
+
         // Map click event for Pavement Markings and for deselecting lane/pavement polygons
         map.on('click', function (e) {
             if (!markersEnabled) return; // Do nothing if markers are disabled.
@@ -699,7 +717,7 @@
                 // Only add marker if an icon is selected.
                 if (!currentIconUrl) return;
                 if (selectedMarker) { deselectMarker(); return; }
-
+                deselectAllLineStrings();
                 if (document.querySelector(`.iconButton.selected`).classList.contains('sign')) {
                     className = 'marker-icon-sign';
                 } else {
@@ -729,12 +747,7 @@
                 addMarkerToLayer(marker);
             }
             else if (laneTab.style.display !== "none") {
-                if (selectedLaneLine) {
-                    selectedLaneLine.setStyle({ dashArray: selectedLaneLine.myStyle.dashArray });
-                    if (selectedLaneLine.disableEdit) { selectedLaneLine.disableEdit(); }
-                    selectedLaneLine = null;
-                    restoreSelectors(); // Restore selectors to previous settings
-                }
+                deselectAllLineStrings(); // Deselect all line strings when clicking on the map
             }
             else if (pavementColorTab.style.display !== "none") {
                 if (selectedPavementPolygon) {

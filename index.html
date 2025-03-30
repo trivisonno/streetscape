@@ -169,6 +169,7 @@
 </head>
 
 <body>
+
     <!-- Map container -->
     <div id="map"></div>
     <!-- Control panel -->
@@ -468,6 +469,9 @@
         // Create separate layer groups.
         const pavementPolygonsLayer = L.featureGroup().addTo(map); // Underneath other features
         const laneLinesLayer = L.featureGroup().addTo(map);
+        const signMarkersLayer = L.featureGroup().addTo(map); // Layer for sign icons
+            const dimensionsLayer = L.featureGroup().addTo(map);
+
         // Create a custom pane for pavement polygons with a lower z-index.
         map.createPane('pavementPane');
         map.getPane('pavementPane').style.zIndex = 250;
@@ -486,16 +490,19 @@
         // Overlay layers
         const markersLayer = L.featureGroup().addTo(map);
 
-        // Layer control
-        const baseLayers = {
-            "Cuyahoga County": esriTiles,
-            "OpenStreetMap": osmTiles
-        };
 
+         const baseLayers = {
+                "Cuyahoga County": esriTiles,
+                "OpenStreetMap": osmTiles
+            };
+
+        // Add these layers to the layer control
         const overlayLayers = {
             "Pavement Polygons": pavementPolygonsLayer,
             "Lane Lines": laneLinesLayer,
-            "Markers": markersLayer
+            "Markers": markersLayer,
+            "Signs": signMarkersLayer, // Add sign markers layer
+            "Dimensions": dimensionsLayer // Add dimensions layer
         };
 
         let layerControl = L.control.layers(baseLayers, overlayLayers).addTo(map);
@@ -515,7 +522,11 @@
 
         // Ensure new features are added to their respective layers
         function addMarkerToLayer(marker) {
-            markersLayer.addLayer(marker);
+            if (marker.myIconUrl && marker.myIconUrl.includes('MUTCD')) {
+                signMarkersLayer.addLayer(marker); // Add sign markers to the sign layer
+            } else {
+                markersLayer.addLayer(marker); // Add other markers to the general markers layer
+            }
         }
 
         function addLaneLineToLayer(line) {

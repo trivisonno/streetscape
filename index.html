@@ -292,9 +292,9 @@
                     <line id="angleLine" x1="50" y1="50" x2="50" y2="10" stroke="red" stroke-width="2" />
                 </svg>
                 <div id="angleValue">0°</div>
-                <button id="angle180Button">Rotate 180°</button>
+                <button id="angle180Button">Flip 180° (F)</button>
             </div>
-            <button id="removeMarker">Remove Selected Marker</button>
+            <button id="removeMarker">Remove Selected Marker (R)</button>
         </div>
         <!-- Lane Lines Tab -->
         <div id="laneTab" class="tabContent" style="display: none;">
@@ -339,7 +339,8 @@
             <button id="drawLaneLine">Draw New Lane Line (L)</button>
             <!-- <button id="editLaneLine">Edit Selected Lane Line</button> -->
             <!-- <button id="saveLaneLineEdits">Save Lane Line Edits</button> -->
-            <button id="removeLaneLine">Remove Selected Lane Line</button>
+            <button id="removeLaneLine">Remove Selected Lane Line (R)</button>
+            <button id="newOffsetLine">New Offset Line</button>
         </div>
         <!-- Pavement Color Tab -->
         <div id="pavementColorTab" class="tabContent" style="display: none;">
@@ -380,10 +381,11 @@
 
     <!-- Leaflet JS and plugins -->
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    <script src="https://rawcdn.githack.com/bbecquet/Leaflet.RotatedMarker/0.2.0/leaflet.rotatedMarker.js"></script>
+    <!-- <script src="https://rawcdn.githack.com/bbecquet/Leaflet.RotatedMarker/0.2.0/leaflet.rotatedMarker.js"></script> -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/leaflet-editable@1.2.0/src/Leaflet.Editable.js"></script>
     <script src="https://ppete2.github.io/Leaflet.PolylineMeasure/Leaflet.PolylineMeasure.js"></script>
+    <script src="https://bbecquet.github.io/Leaflet.PolylineDecorator/dist/leaflet.polylineDecorator.js"></script>
 
     <script>
         // --- Global Variables ---
@@ -718,6 +720,7 @@
                 }
                 selectedLaneLine = null;
                 restoreSelectors(); // Restore selectors to previous settings
+                removeArrowheads(); // Remove arrowheads when deselecting
             }
         }
 
@@ -836,17 +839,7 @@
                 polyline.off('editable:drawing:commit editable:drawing:end');
                 polyline.on('click', function (ev) {
                     L.DomEvent.stopPropagation(ev);
-                    if (selectedLaneLine && selectedLaneLine !== polyline) {
-                        selectedLaneLine.setStyle({
-                            dashArray: selectedLaneLine.myStyle.dashArray,
-                            color: selectedLaneLine.myStyle.color
-                        });
-                        selectedLaneLine.disableEdit(); // Disable editing for previously selected line
-                        restoreSelectors(); // Restore selectors to previous settings
-                    }
-                    selectedLaneLine = polyline;
-                    setSelectorsFromLine(polyline); // Update selectors to match the selected line
-                    polyline.enableEdit(); // Automatically enable editing for the clicked line
+                    selectLine(polyline);
                 });
                 // Automatically allow new line drawing.
                 startDrawingLaneLine();
@@ -917,6 +910,55 @@
             input.addEventListener('change', updateSelectedLineStyle);
         });
 
+        // Function to offset a line by X feet
+        function offsetLine(line, offsetFeet) {
+            const latlngs = line.getLatLngs();
+            const offsetMeters = offsetFeet * 0.3048; // Convert feet to meters
+            const coords = latlngs.map(ll => [ll.lng, ll.lat]);
+
+            // Use Turf.js to calculate the offset line
+            const lineString = turf.lineString(coords);
+            const offsetLineString = turf.lineOffset(lineString, offsetMeters, { units: 'meters' });
+
+            // Convert the offset line back to Leaflet LatLngs
+            const offsetCoords = offsetLineString.geometry.coordinates.map(coord => L.latLng(coord[1], coord[0]));
+            return offsetCoords;
+        }
+
+        // Function to create a new offset line
+        function createOffsetLine() {
+            if (!selectedLaneLine) {
+                alert("Please select a lane line first.");
+                return;
+            }
+
+            const offsetFeet = parseFloat(prompt("Enter offset distance in feet:", "10"));
+            if (isNaN(offsetFeet)) {
+                alert("Invalid offset distance.");
+                return;
+            }
+
+            const offsetLatLngs = offsetLine(selectedLaneLine, offsetFeet);
+            const newLine = L.polyline(offsetLatLngs, {
+                color: selectedLaneLine.myStyle.color,
+                weight: selectedLaneLine.myStyle.weight,
+                dashArray: selectedLaneLine.myStyle.dashArray,
+                lineJoin: "round",
+                lineCap: "square"
+            }).addTo(laneLinesLayer);
+
+            newLine.myStyle = { ...selectedLaneLine.myStyle };
+            laneLines.push(newLine);
+
+            newLine.on('click', function (ev) {
+                L.DomEvent.stopPropagation(ev);
+                selectLine(newLine);
+            });
+        }
+
+        // Add event listener to the "New Offset Line" button
+        document.getElementById('newOffsetLine').addEventListener('click', createOffsetLine);
+
         // --- Pavement Color (Polygon) Section ---
         document.getElementById('drawPavementPolygon').addEventListener('click', function () {
             const strokeColor = document.getElementById('pavementStroke').value;
@@ -971,7 +1013,7 @@
             }
         });
 
-        document.getElementById('pavementFillOpacity').addEventListener('input', function () {
+        document.getElementById('pavementFillOpacity').addEventListener('click', function () {
             const newOpacity = parseFloat(this.value);
             document.getElementById('pavementFillOpacityValue').textContent = this.value;
             if (selectedPavementPolygon) {
@@ -990,7 +1032,7 @@
             }
         });
 
-        // Function to calculate the area of a polygon in square feet using Turf.js
+        // Function to calculate the area of a polygon in square feet and square yards
         function calculatePolygonArea(polygon) {
             const latLngs = polygon.getLatLngs()[0] || polygon.getLatLngs();
             const coordinates = latLngs.map(latlng => [latlng.lng, latlng.lat]);
@@ -1006,14 +1048,16 @@
 
             const geojsonPolygon = turf.polygon([coordinates]);
             const areaInSquareMeters = turf.area(geojsonPolygon);
-            return areaInSquareMeters * 10.7639; // Convert to square feet
+            const areaInSquareFeet = areaInSquareMeters * 10.7639; // Convert to square feet
+            const areaInSquareYards = areaInSquareFeet / 9; // Convert to square yards
+            return { squareFeet: areaInSquareFeet, squareYards: areaInSquareYards };
         }
 
         // Update the area display when a polygon is clicked
         function updatePavementAreaDisplay(polygon) {
             if (polygon) {
                 const area = calculatePolygonArea(polygon);
-                document.getElementById('pavementArea').textContent = `Area: ${area.toFixed(0)} sqft`;
+                document.getElementById('pavementArea').textContent = `Area: ${area.squareFeet.toFixed(0)} sqft (${area.squareYards.toFixed(0)} sqyd)`;
             } else {
                 // Hide the area display if no polygon is selected
                 document.getElementById('pavementArea').textContent = '';
@@ -1200,12 +1244,7 @@
                             laneLines.push(polyline);
                             polyline.on('click', function (ev) {
                                 L.DomEvent.stopPropagation(ev);
-                                if (selectedLaneLine && selectedLaneLine !== polyline) {
-                                    selectedLaneLine.setStyle({ dashArray: selectedLaneLine.myStyle.dashArray });
-                                }
-                                selectedLaneLine = polyline;
-                                // polyline.setStyle({ dashArray: "20,20" });
-                                polyline.enableEdit(); // Automatically enable editing for the clicked line
+                                selectLine(polyline);
                             });
                             addLaneLineToLayer(polyline);
                         } else if (feature.geometry.type === "Polygon" && feature.properties.type === "pavement") {
@@ -1465,6 +1504,7 @@
                 selectedLaneLine.disableEdit();
                 selectedLaneLine = null;
                 restoreSelectors(); // Restore selectors to previous settings
+                removeArrowheads(); // Remove arrowheads when deselecting
             }
 
             if (selectedMarker) {
@@ -1489,6 +1529,153 @@
                 deselectAllFeatures();
             }
         });
+
+        let arrowDecorator = null;
+
+        // Function to add arrowheads to a selected line
+        function addArrowheads(line) {
+            const latlngs = line.getLatLngs();
+            if (latlngs.length < 2) return;
+            // Remove any existing arrowheads before adding new ones
+            removeArrowheads();
+
+            // Create a polyline decorator for arrowheads
+            arrowDecorator = L.polylineDecorator(line, {
+                patterns: [
+                    {
+                        offset: '10',
+                        repeat: '50',
+                        symbol: L.Symbol.arrowHead({
+                            pixelSize: 10,
+                            polygon: false,
+                            pathOptions: { stroke: true, color: 'red', weight: 2 }
+                        })
+                    }
+                ]
+            }).addTo(map);
+        }
+
+        // Function to remove arrowheads
+        function removeArrowheads() {
+            if (arrowDecorator) {
+                map.removeLayer(arrowDecorator);
+                arrowDecorator = null;
+            }
+        }// Function to reset arrowheads when the line is edited
+            function resetArrowheadsOnEdit(line) {
+                line.on('editable:vertex:dragend editable:vertex:deleted', function () {
+                    addArrowheads(line); // Re-add arrowheads after editing
+                });
+            }
+
+        // Update the line selection logic to include arrowheads
+        function selectLine(line) {
+            if (selectedLaneLine && selectedLaneLine !== line) {
+                selectedLaneLine.setStyle({
+                    dashArray: selectedLaneLine.myStyle.dashArray,
+                    color: selectedLaneLine.myStyle.color
+                });
+                selectedLaneLine.disableEdit();
+                removeArrowheads(); // Remove arrowheads from the previously selected line
+                restoreSelectors();
+            }
+
+            selectedLaneLine = line;
+            setSelectorsFromLine(line);
+            line.enableEdit();
+            addArrowheads(line); // Add arrowheads to the newly selected line
+            resetArrowheadsOnEdit(line);
+        }
+
+        // // Update the click event for lines to use the new selection logic
+        // laneLines.forEach(line => {
+        //     line.on('click', function (ev) {
+        //         L.DomEvent.stopPropagation(ev);
+        //         selectLine(line);
+        //     });
+        // });
+
+        // Ensure deselection removes the arrowheads
+        function deselectAllLineStrings() {
+            if (selectedLaneLine) {
+                selectedLaneLine.setStyle({
+                    dashArray: selectedLaneLine.myStyle.dashArray,
+                    color: selectedLaneLine.myStyle.color
+                });
+                selectedLaneLine.disableEdit();
+                removeArrowheads(); // Remove arrowheads when deselecting
+                selectedLaneLine = null;
+                restoreSelectors();
+            }
+        }
+
+        // Add event listener for the 'Delete' key
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'r') {
+                if (selectedMarker) {
+                    // Trigger marker removal
+                    map.removeLayer(selectedMarker);
+                    const idx = markers.indexOf(selectedMarker);
+                    if (idx > -1) markers.splice(idx, 1);
+                    deselectMarker();
+                } else if (selectedLaneLine) {
+                    // Trigger line string removal
+                    laneLinesLayer.removeLayer(selectedLaneLine);
+                    const idx = laneLines.indexOf(selectedLaneLine);
+                    if (idx > -1) laneLines.splice(idx, 1);
+                    selectedLaneLine = null;
+                    removeArrowheads(); // Ensure arrowheads are removed
+                }
+            }
+        });
+
+        // Add event listener for the 'F' key to run the rotate180 function
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'f') {
+                const angleValue = document.getElementById('angleValue');
+                let currentAngle = parseInt(angleValue.textContent);
+                currentAngle = (currentAngle + 180) % 360;
+                angleValue.textContent = currentAngle + '°';
+                const rad = currentAngle * Math.PI / 180;
+                document.getElementById('angleLine').setAttribute('x2', 50 + 40 * Math.sin(rad));
+                document.getElementById('angleLine').setAttribute('y2', 50 - 40 * Math.cos(rad));
+                if (selectedMarker) {
+                    selectedMarker.setRotationAngle(currentAngle);
+                }
+            }
+        });
+
+        // Function to calculate the area of a polygon in square feet and square yards
+        function calculatePolygonArea(polygon) {
+            const latLngs = polygon.getLatLngs()[0] || polygon.getLatLngs();
+            const coordinates = latLngs.map(latlng => [latlng.lng, latlng.lat]);
+
+            // Ensure the polygon is closed by checking if the first and last coordinates are the same
+            if (coordinates.length > 0) {
+                const firstCoord = coordinates[0];
+                const lastCoord = coordinates[coordinates.length - 1];
+                if (firstCoord[0] !== lastCoord[0] || firstCoord[1] !== lastCoord[1]) {
+                    coordinates.push(firstCoord); // Add the first coordinate to the end to close the polygon
+                }
+            }
+
+            const geojsonPolygon = turf.polygon([coordinates]);
+            const areaInSquareMeters = turf.area(geojsonPolygon);
+            const areaInSquareFeet = areaInSquareMeters * 10.7639; // Convert to square feet
+            const areaInSquareYards = areaInSquareFeet / 9; // Convert to square yards
+            return { squareFeet: areaInSquareFeet, squareYards: areaInSquareYards };
+        }
+
+        // Update the area display when a polygon is clicked
+        function updatePavementAreaDisplay(polygon) {
+            if (polygon) {
+                const area = calculatePolygonArea(polygon);
+                document.getElementById('pavementArea').textContent = `Area: ${area.squareFeet.toFixed(0)} sqft (${area.squareYards.toFixed(0)} sqyd)`;
+            } else {
+                // Hide the area display if no polygon is selected
+                document.getElementById('pavementArea').textContent = '';
+            }
+        }
     </script>
 </body>
 

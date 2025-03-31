@@ -724,9 +724,20 @@
             }
         }
 
+        let isDraggingMap = false;
+
+        // Detect when the map starts and stops being dragged
+        map.on('dragstart', function () {
+            isDraggingMap = true;
+        });
+
+        map.on('dragend', function () {
+            isDraggingMap = false;
+        });
+
         // Map click event for Pavement Markings and for deselecting lane/pavement polygons
         map.on('click', function (e) {
-            if (!markersEnabled) return; // Do nothing if markers are disabled.
+            if (isDraggingMap || !markersEnabled) return; // Do nothing if dragging the map or markers are disabled.
             if (pavementTab.style.display !== "none") {
                 // Only add marker if an icon is selected.
                 if (!currentIconUrl) return;

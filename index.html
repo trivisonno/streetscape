@@ -171,6 +171,8 @@
     <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
     <link rel="manifest" href="site.webmanifest">
+
+    <script src="https://maps.googleapis.com/maps/api/js?key=" async defer></script>
 </head>
 
 <body>
@@ -391,6 +393,7 @@
     <script src="https://cdn.jsdelivr.net/npm/leaflet-editable@1.2.0/src/Leaflet.Editable.js"></script>
     <script src="https://ppete2.github.io/Leaflet.PolylineMeasure/Leaflet.PolylineMeasure.js"></script>
     <script src="https://bbecquet.github.io/Leaflet.PolylineDecorator/dist/leaflet.polylineDecorator.js"></script>
+    <script src='https://unpkg.com/leaflet.gridlayer.googlemutant@latest/dist/Leaflet.GoogleMutant.js'></script>
 
     <script>
         // --- Global Variables ---
@@ -442,6 +445,10 @@
             maxZoom: 19,
             attribution: '© OpenStreetMap contributors'
         });
+
+        var satellite = L.gridLayer.googleMutant({
+                type: 'hybrid'	// valid values are 'roadmap', 'satellite', 'terrain' and 'hybrid'
+            });
 
         L.control.polylineMeasure({
             'unit': 'landmiles',
@@ -500,7 +507,8 @@
 
          const baseLayers = {
                 "Cuyahoga County": esriTiles,
-                "OpenStreetMap": osmTiles
+                "OpenStreetMap": osmTiles,
+                "Google Satellite": satellite
             };
 
         // Add these layers to the layer control
@@ -1348,6 +1356,10 @@
 
                         // Set map view to project initial settings.
                         map.setView(geojson.project.initialCenter, geojson.project.initialZoom);
+                        const projectName = geojson.project.name || file.name.replace(/\.[^/.]+$/, ""); // Use file name if no project name
+                        document.getElementById('projectNameLabel').textContent = projectName;
+                        document.getElementById('projectNameInput').value = projectName;
+                        updateHtmlTitle(projectName); // Update the title
                     }
                     // Zoom to features if project settings not provided.
                     else {
@@ -1469,13 +1481,14 @@
         document.getElementById('projectNameOk').addEventListener('click', function () {
             const input = document.getElementById('projectNameInput');
             const label = document.getElementById('projectNameLabel');
-            label.textContent = input.value;
+            const projectName = input.value;
+            label.textContent = projectName;
             input.style.display = 'none';
             this.style.display = 'none';
             label.style.display = 'inline-block';
             document.getElementById('projectNameEdit').style.display = 'inline-block';
+            updateHtmlTitle(projectName); // Update the title
         });
-
 
         document.getElementById('updateProjectSettings').addEventListener('click', function () {
             const center = map.getCenter();
@@ -1731,9 +1744,47 @@
                 document.getElementById('pavementArea').textContent = '';
             }
         }
-    
 
-        
+        // Function to update the HTML title
+        function updateHtmlTitle(projectName) {
+            document.title = `${projectName} - Streetscape`;
+        }
+
+        // Update the title when the project name is updated
+        document.getElementById('projectNameOk').addEventListener('click', function () {
+            const input = document.getElementById('projectNameInput');
+            const label = document.getElementById('projectNameLabel');
+            const projectName = input.value;
+            label.textContent = projectName;
+            input.style.display = 'none';
+            this.style.display = 'none';
+            label.style.display = 'inline-block';
+            document.getElementById('projectNameEdit').style.display = 'inline-block';
+            updateHtmlTitle(projectName); // Update the title
+        });
+
+        // Update the title when loading a GeoJSON file
+        document.getElementById('loadGeoJson').addEventListener('change', function (e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                try {
+                    const geojson = JSON.parse(e.target.result);
+                    // ...existing code...
+                    if (geojson.project) {
+                        const projectName = geojson.project.name || file.name.replace(/\.[^/.]+$/, ""); // Use file name if no project name
+                        document.getElementById('projectNameLabel').textContent = projectName;
+                        document.getElementById('projectNameInput').value = projectName;
+                        updateHtmlTitle(projectName); // Update the title
+                    }
+                    // ...existing code...
+                } catch (err) {
+                    alert("Error reading GeoJSON: " + err);
+                }
+            };
+            reader.readAsText(file);
+        });
 
     </script>
 </body>

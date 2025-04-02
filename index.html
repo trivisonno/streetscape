@@ -183,9 +183,8 @@
     <div id="control"><!-- Editable Project Name -->
         <div id="projectHeader">
             <span id="projectNameLabel" style="font-size: 0.8rem; cursor: pointer;">
-                My Project
-            </span>
-            <span id="projectNameEdit" style="cursor: pointer;">
+                My Project</span>
+            <span id="projectNameEdit" style="cursor: pointer;display:inline-block">
                 <svg width="10px" height="10px" xmlns="http://www.w3.org/2000/svg"
                     viewBox="0 0 512 512"><!--!Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.-->
                     <path
@@ -209,7 +208,7 @@
             <button id="tabProjectSettings" class="tab">Project Settings</button>
         </div>
         <!-- Pavement Markings Tab -->
-        <div id="pavementTab" class="tabContent">
+        <div id="pavementTab" class="tabContent">Ground Control
             <div id="iconOptions">
                 <button class="iconButton" data-icon="img/bikelane.png">
                     <img src="img/bikelane.png" alt="Bike Lane" style="width: 30px;">
@@ -274,6 +273,9 @@
                 <button class="iconButton" data-icon="img/football.png">
                     <img src="img/football.png" alt="Protected intersection curb" style="width: 30px;">
                 </button>
+            </div>
+            <p></p>Sign/Signal Control
+            <div id="iconOptions">
                 <button class="iconButton sign" data-icon="img/MUTCD_R10-11.png">
                     <img src="img/MUTCD_R10-11.png" alt="No turn on red" style="width: 30px;">
                 </button>
@@ -367,7 +369,7 @@
         </div>
         <!-- Project Settings Tab -->
         <div id="projectSettingsTab" class="tabContent" style="display: none;">
-            <div>
+            <div style="display: none;>
                 <label for="initialLat">Load Latitude:</label>
                 <input type="text" id="initialLat" value="41.4993"><br>
                 <label for="initialLng">Load Longitude:</label>
@@ -375,7 +377,7 @@
                 <label for="initialZoom">Load Zoom:</label>
                 <input type="number" id="initialZoom" value="21" min="1"><br>
             </div>
-            <button id="updateProjectSettings">Update View Coordinates</button>
+            <button id="updateProjectSettings">Set Current View as Default</button>
 
             <hr>
             <button id="deleteMarkers">Delete All Markers</button>
@@ -388,7 +390,7 @@
 
     <!-- Leaflet JS and plugins -->
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    <!-- <script src="https://rawcdn.githack.com/bbecquet/Leaflet.RotatedMarker/0.2.0/leaflet.rotatedMarker.js"></script> -->
+    <!-- <script src="https://rawcdn.githack.com/bbecquet/Leaflet.RotatedMarker/0.2.0/leaflet.rotatedMarker.js"></script> https://github.com/bbecquet/Leaflet.PolylineDecorator/issues/94#issuecomment-764621860--> 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/leaflet-editable@1.2.0/src/Leaflet.Editable.js"></script>
     <script src="https://ppete2.github.io/Leaflet.PolylineMeasure/Leaflet.PolylineMeasure.js"></script>
@@ -428,7 +430,7 @@
         }
 
         // --- Initialize Map & Layers ---
-        const map = L.map('map', { maxZoom: 21, editable: true, zoomControl: false }).setView([41.4993, -81.6944], 21);
+        const map = L.map('map', { maxZoom: 23, editable: true, zoomControl: false }).setView([41.4993, -81.6944], 21);
         L.control.zoom({
             position: 'bottomright'
         }).addTo(map);
@@ -436,21 +438,29 @@
         // Tile layer management (available tile layers)
         const tileLayers = [];
         const esriTiles = L.tileLayer('https://gis.cuyahogacounty.us/server/rest/services/IMAGERY/2023_Fall_Aerial/MapServer/tile/{z}/{y}/{x}', {
-            maxZoom: 21,
+            maxNativeZoom: 21,
+            maxZoom: 23,
             zoomOffset: -10,
-            attribution: 'Tiles &copy; Cuyahoga County GIS'
+            attribution: '<a href="https://geospatial.gis.cuyahogacounty.gov/" target="_blank">Cuyahoga County GIS</a>'
         }).addTo(map);
 
         const osmTiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
+            maxNativeZoom: 19,
+            maxZoom: 23,
             attribution: '© OpenStreetMap contributors'
         });
 
         var satellite = L.gridLayer.googleMutant({
-                type: 'hybrid'	// valid values are 'roadmap', 'satellite', 'terrain' and 'hybrid'
+            type: 'satellite',
+            maxZoom: 23	// valid values are 'roadmap', 'satellite', 'terrain' and 'hybrid'
             });
 
-        L.control.polylineMeasure({
+        var hybrid = L.gridLayer.googleMutant({
+            maxZoom: 23,
+            type: 'hybrid'	// valid values are 'roadmap', 'satellite', 'terrain' and 'hybrid'
+            });    
+
+        var varPolylineMeasure = L.control.polylineMeasure({
             'unit': 'landmiles',
             'showClearControl': true,
             measureControlLabel: '&#128207;',
@@ -508,7 +518,8 @@
          const baseLayers = {
                 "Cuyahoga County": esriTiles,
                 "OpenStreetMap": osmTiles,
-                "Google Satellite": satellite
+                "Google Satellite": satellite,
+                "Google Hybrid": hybrid
             };
 
         // Add these layers to the layer control
@@ -855,6 +866,12 @@
             const laneColor = document.querySelector('input[name="laneColor"]:checked').value;
             const laneWidth = parseInt(document.querySelector('input[name="laneWidth"]:checked').value, 10);
             const laneDash = document.querySelector('input[name="laneDash"]:checked').value;
+
+            // Disable the polylineMeasure tool while drawing
+            if (varPolylineMeasure._measuring == true) {
+                varPolylineMeasure._toggleMeasure(); // Turn off the tool
+            }
+
             var polyline = map.editTools.startPolyline();
             polyline.on('editable:drawing:commit editable:drawing:end', function () {
                 const latlngs = polyline.getLatLngs();
@@ -1243,135 +1260,173 @@
             a.click();
             a.remove();
         });
+
         document.getElementById('loadGeoJsonBtn').addEventListener('click', function () {
             document.getElementById('loadGeoJson').click();
         });
-        document.getElementById('loadGeoJson').addEventListener('change', function (e) {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function (e) {
-                try {
-                    const geojson = JSON.parse(e.target.result);
-                    geojson.features.forEach(feature => {
-                        if (feature.geometry.type === "Point" && feature.properties.type === "marking") {
-                            const coords = feature.geometry.coordinates;
-                            const latlng = L.latLng(coords[1], coords[0]);
-                            const rotation = feature.properties.rotation;
-                            const iconUrl = feature.properties.icon;
-                            const marker = L.marker(latlng, {
-                                icon: getIconForZoom(map.getZoom(), iconUrl),
-                                rotationAngle: rotation,
-                                rotationOrigin: 'center center',
-                                draggable: false,
-                                pane: 'overlayPane'
-                            }).addTo(map);
-                            marker.myIconUrl = iconUrl;
-                            markers.push(marker);
-                            marker.on('click', function (ev) {
-                                L.DomEvent.stopPropagation(ev);
-                                if (selectedMarker && selectedMarker !== marker) {
-                                    deselectMarker();
-                                }
-                                selectedMarker = marker;
-                                marker.dragging.enable();
-                                highlightMarker(marker);
-                                document.getElementById('angleValue').textContent = Math.round(marker.options.rotationAngle) + '°';
-                                const rad = marker.options.rotationAngle * Math.PI / 180;
-                                document.getElementById('angleLine').setAttribute('x2', 50 + 40 * Math.sin(rad));
-                                document.getElementById('angleLine').setAttribute('y2', 50 - 40 * Math.cos(rad));
-                            });
-                            addMarkerToLayer(marker);
-                        } else if (feature.geometry.type === "LineString" && feature.properties.type === "lane") {
-                            const coords = feature.geometry.coordinates;
-                            const latlngs = coords.map(c => L.latLng(c[1], c[0]));
-                            const style = feature.properties.style;
-                            const polyline = L.polyline(latlngs, {
-                                color: style.color,
-                                weight: style.weight,
-                                dashArray: style.dashArray,
-                                lineJoin: style.lineJoin,
-                                lineCap: style.lineCap,
-                                pane: 'overlayPane'
-                            }).addTo(laneLinesLayer);
-                            polyline.myStyle = style;
-                            laneLines.push(polyline);
-                            polyline.on('click', function (ev) {
-                                L.DomEvent.stopPropagation(ev);
-                                selectLine(polyline);
-                            });
-                            addLaneLineToLayer(polyline);
-                        } else if (feature.geometry.type === "Polygon" && feature.properties.type === "pavement") {
-                            const coords = feature.geometry.coordinates[0]; // assume single-ring
-                            const latlngs = coords.map(c => L.latLng(c[1], c[0]));
-                            const style = feature.properties.style;
-                            const poly = L.polygon(latlngs, {
-                                color: style.color,
-                                weight: style.weight,
-                                fillColor: style.fillColor,
-                                fillOpacity: style.fillOpacity,
-                                pane: 'pavementPane'
-                            }).addTo(pavementPolygonsLayer);
-                            poly.myStyle = style;
-                            pavementPolygons.push(poly);
-                            poly.on('click', function (ev) {
-                                L.DomEvent.stopPropagation(ev);
-                                deselectAllPavementPolygons(); // Deselect all polygons first
-                                if (selectedPavementPolygon && selectedPavementPolygon !== poly) {
-                                    selectedPavementPolygon.setStyle({ dashArray: selectedPavementPolygon.myStyle.dashArray || "" });
-                                }
-                                selectedPavementPolygon = poly;
-                                poly.setStyle({ dashArray: "20,20", weight: 5, color: 'red' });
-                                updatePavementAreaDisplay(poly);
-                            });
-                            poly.disableEdit();
-                            poly.options.interactive = false;
-                            if (poly._path) {
-                                poly._path.style.pointerEvents = "none";
-                            }
-                            addPavementPolygonToLayer(poly);
-                        }
-                    });
 
-                    // Update project settings if available.
-                    if (geojson.project) {
-                        // document.getElementById('projectNameLabel').textContent = geojson.project.name || "";
-                        // document.getElementById('projectNameInput').value = geojson.project.name || "";
-                        // Use the file name if the loaded geojson has no project name
-                        const fileName = file.name;
-                        const baseName = fileName.replace(/\.[^/.]+$/, ""); // remove file extension
-
-                        if (!geojson.project || !geojson.project.name || !geojson.project.name.trim()) {
-                            document.getElementById('projectNameLabel').textContent = baseName;
-                            document.getElementById('projectNameInput').value = baseName;
-                        } else {
-                            document.getElementById('projectNameLabel').textContent = geojson.project.name;
-                            document.getElementById('projectNameInput').value = geojson.project.name;
-                        }
-
-                        document.getElementById('initialLat').value = geojson.project.initialCenter ? geojson.project.initialCenter[0] : "";
-                        document.getElementById('initialLng').value = geojson.project.initialCenter ? geojson.project.initialCenter[1] : "";
-                        document.getElementById('initialZoom').value = geojson.project.initialZoom || 21;
-                        // Update tile layer checkboxes.
-
-                        // Set map view to project initial settings.
-                        map.setView(geojson.project.initialCenter, geojson.project.initialZoom);
-                        const projectName = geojson.project.name || file.name.replace(/\.[^/.]+$/, ""); // Use file name if no project name
-                        document.getElementById('projectNameLabel').textContent = projectName;
-                        document.getElementById('projectNameInput').value = projectName;
-                        updateHtmlTitle(projectName); // Update the title
+        // Function to load a GeoJSON file from a URL
+        function loadGeoJsonFromUrl(url) {
+            fetch(url)
+                .then(response => {
+                    console.log(response);
+                    if (!response.ok) {
+                        throw new Error(`Failed to fetch GeoJSON file: ${response.statusText}`);
                     }
-                    // Zoom to features if project settings not provided.
-                    else {
+                    return response.json();
+                })
+                .then(data => {
+                    // Process the GeoJSON data
+                    loadFeaturesFromGeoJson(data)
+                    console.log("GeoJSON loaded successfully.");
+                })
+                .catch(error => {
+                    console.error("Error loading GeoJSON:", error);
+                });
+        }
+
+        // Check for a GeoJSON file in the URL query parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const geoJsonUrl = urlParams.get('file');
+        if (geoJsonUrl) {
+            loadGeoJsonFromUrl(geoJsonUrl);
+        }
+
+        function loadFeaturesFromGeoJson(geojson) {
+            try {
+                geojson.features.forEach(feature => {
+                    if (feature.geometry.type === "Point" && feature.properties.type === "marking") {
+                        const coords = feature.geometry.coordinates;
+                        const latlng = L.latLng(coords[1], coords[0]);
+                        const rotation = feature.properties.rotation;
+                        const iconUrl = feature.properties.icon;
+                        const marker = L.marker(latlng, {
+                            icon: getIconForZoom(map.getZoom(), iconUrl),
+                            rotationAngle: rotation,
+                            rotationOrigin: 'center center',
+                            draggable: false,
+                            pane: 'overlayPane'
+                        }).addTo(map);
+                        marker.myIconUrl = iconUrl;
+                        markers.push(marker);
+                        marker.on('click', function (ev) {
+                            L.DomEvent.stopPropagation(ev);
+                            if (selectedMarker && selectedMarker !== marker) {
+                                deselectMarker();
+                            }
+                            selectedMarker = marker;
+                            marker.dragging.enable();
+                            highlightMarker(marker);
+                            document.getElementById('angleValue').textContent = Math.round(marker.options.rotationAngle) + '°';
+                            const rad = marker.options.rotationAngle * Math.PI / 180;
+                            document.getElementById('angleLine').setAttribute('x2', 50 + 40 * Math.sin(rad));
+                            document.getElementById('angleLine').setAttribute('y2', 50 - 40 * Math.cos(rad));
+                        });
+                        addMarkerToLayer(marker);
+                    } else if (feature.geometry.type === "LineString" && feature.properties.type === "lane") {
+                        const coords = feature.geometry.coordinates;
+                        const latlngs = coords.map(c => L.latLng(c[1], c[0]));
+                        const style = feature.properties.style;
+                        const polyline = L.polyline(latlngs, {
+                            color: style.color,
+                            weight: style.weight,
+                            dashArray: style.dashArray,
+                            lineJoin: style.lineJoin,
+                            lineCap: style.lineCap,
+                            pane: 'overlayPane'
+                        }).addTo(laneLinesLayer);
+                        polyline.myStyle = style;
+                        laneLines.push(polyline);
+                        polyline.on('click', function (ev) {
+                            L.DomEvent.stopPropagation(ev);
+                            selectLine(polyline);
+                        });
+                        addLaneLineToLayer(polyline);
+                    } else if (feature.geometry.type === "Polygon" && feature.properties.type === "pavement") {
+                        const coords = feature.geometry.coordinates[0]; // assume single-ring
+                        const latlngs = coords.map(c => L.latLng(c[1], c[0]));
+                        const style = feature.properties.style;
+                        const poly = L.polygon(latlngs, {
+                            color: style.color,
+                            weight: style.weight,
+                            fillColor: style.fillColor,
+                            fillOpacity: style.fillOpacity,
+                            pane: 'pavementPane'
+                        }).addTo(pavementPolygonsLayer);
+                        poly.myStyle = style;
+                        pavementPolygons.push(poly);
+                        poly.on('click', function (ev) {
+                            L.DomEvent.stopPropagation(ev);
+                            deselectAllPavementPolygons(); // Deselect all polygons first
+                            if (selectedPavementPolygon && selectedPavementPolygon !== poly) {
+                                selectedPavementPolygon.setStyle({ dashArray: selectedPavementPolygon.myStyle.dashArray || "" });
+                            }
+                            selectedPavementPolygon = poly;
+                            poly.setStyle({ dashArray: "20,20", weight: 5, color: 'red' });
+                            updatePavementAreaDisplay(poly);
+                        });
+                        poly.disableEdit();
+                        poly.options.interactive = false;
+                        if (poly._path) {
+                            poly._path.style.pointerEvents = "none";
+                        }
+                        addPavementPolygonToLayer(poly);
+                    }
+                });
+
+                // Update project settings if available.
+                if (geojson.project) {
+                    if (!geojson.project || !geojson.project.name || !geojson.project.name.trim()) {
+                        document.getElementById('projectNameLabel').textContent = baseName;
+                        document.getElementById('projectNameInput').value = baseName;
+                    } else {
+                        document.getElementById('projectNameLabel').textContent = geojson.project.name;
+                        document.getElementById('projectNameInput').value = geojson.project.name;
+                    }
+
+                    document.getElementById('initialLat').value = geojson.project.initialCenter ? geojson.project.initialCenter[0] : "";
+                    document.getElementById('initialLng').value = geojson.project.initialCenter ? geojson.project.initialCenter[1] : "";
+                    document.getElementById('initialZoom').value = geojson.project.initialZoom || 21;
+                    // Update tile layer checkboxes.
+
+                    // Set map view to project initial settings.
+                    if (geojson.project.initialCenter) {
+                        map.setView(geojson.project.initialCenter, geojson.project.initialZoom);
+                    } else {
+                        // Zoom to features if `initialCenter` is not provided.
                         let bounds = new L.LatLngBounds();
                         markers.forEach(m => bounds.extend(m.getLatLng()));
                         laneLines.forEach(l => l.getLatLngs().forEach(ll => bounds.extend(ll)));
                         pavementPolygons.forEach(p => p.getLatLngs()[0].forEach(ll => bounds.extend(ll)));
-                        if (bounds.isValid()) { map.fitBounds(bounds); }
+                        if (bounds.isValid()) {
+                            map.fitBounds(bounds);
+                        }
                     }
-                } catch (err) {
-                    alert("Error reading GeoJSON: " + err);
+                    const projectName = geojson.project.name || file.name.replace(/\.[^/.]+$/, ""); // Use file name if no project name
+                    document.getElementById('projectNameLabel').textContent = projectName;
+                    document.getElementById('projectNameInput').value = projectName;
+                    updateHtmlTitle(projectName); // Update the title
                 }
+                // Zoom to features if project settings not provided.
+                else {
+                    let bounds = new L.LatLngBounds();
+                    markers.forEach(m => bounds.extend(m.getLatLng()));
+                    laneLines.forEach(l => l.getLatLngs().forEach(ll => bounds.extend(ll)));
+                    pavementPolygons.forEach(p => p.getLatLngs()[0].forEach(ll => bounds.extend(ll)));
+                    if (bounds.isValid()) { map.fitBounds(bounds); }
+                }
+            } catch (err) {
+                alert("Error reading GeoJSON: " + err);
+            }
+        }
+
+        document.getElementById('loadGeoJson').addEventListener('input', function (e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const geojson = JSON.parse(e.target.result);
+                loadFeaturesFromGeoJson(geojson)
             };
             reader.readAsText(file);
         });
@@ -1527,6 +1582,10 @@
                 // Remove all pavement polygons
                 pavementPolygons.forEach(p => map.removeLayer(p));
                 pavementPolygons.length = 0;
+
+                // Reset the loadGeoJson file input
+                const loadGeoJsonInput = document.getElementById('loadGeoJson');
+                loadGeoJsonInput.value = ''; // Clear the input value
             }
         });
 

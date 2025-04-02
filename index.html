@@ -873,7 +873,7 @@
             }
 
             var polyline = map.editTools.startPolyline();
-            polyline.on('editable:drawing:commit editable:drawing:end', function () {
+            polyline.on('editable:drawing:end', function () {
                 const latlngs = polyline.getLatLngs();
                 // if (!latlngs || latlngs.length < 2) { console.error("Invalid polyline"); return; }
                 if (polyline.disableEdit) { polyline.disableEdit(); }
@@ -887,7 +887,7 @@
                     selectLine(polyline);
                 });
                 // Automatically allow new line drawing.
-                startDrawingLaneLine();
+                // startDrawingLaneLine();
                 addLaneLineToLayer(polyline);
             });
         }
@@ -1036,7 +1036,7 @@
             const fillColor = document.getElementById('pavementFill').value;
             const fillOpacity = parseFloat(document.getElementById('pavementFillOpacity').value);
             var polygon = map.editTools.startPolygon();
-            polygon.on('editable:drawing:commit editable:drawing:end', function () {
+            polygon.on('editable:drawing:end', function () {
                 const latlngs = polygon.getLatLngs()[0] || polygon.getLatLngs();
                 if (!latlngs || latlngs.length < 3) { console.error("Invalid polygon"); return; }
                 if (polygon.disableEdit) { polygon.disableEdit(); }

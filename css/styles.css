@@ -1,0 +1,134 @@
+html,
+body {
+    margin: 0;
+    padding: 0;
+}
+
+#map {
+    height: 100vh;
+    width: 100%;
+}
+
+#control {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: white;
+    padding: 10px;
+    z-index: 1000;
+    border-radius: 5px;
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+    font-family: sans-serif;
+    max-width: 275px;
+}
+
+#control.collapsed {
+    overflow: hidden;
+    height: 20px;
+}
+
+#projectHeader {
+    margin-bottom: 10px;
+}
+
+#projectHeader label {
+    font-weight: bold;
+    margin-right: 5px;
+}
+
+#tabs {
+    display: flex;
+    margin-bottom: 5px;
+}
+
+#tabs .tab {
+    flex: 1;
+    padding: 5px;
+    cursor: pointer;
+    text-align: center;
+    background: #eee;
+    border: 1px solid #ccc;
+    border-bottom: none;
+}
+
+#tabs .tab.active {
+    background: white;
+    font-weight: bold;
+}
+
+.tabContent {
+    border: 1px solid #ccc;
+    padding: 5px;
+}
+
+#iconOptions {
+    display: flex;
+    flex-direction: row;
+    margin-bottom: 5px;
+    background-color: #aaa;
+    overflow-x: scroll;
+    white-space: nowrap;
+    scrollbar-gutter: stable;
+}
+
+#iconOptions button {
+    background: none;
+    border: none;
+    padding: 0;
+    margin-right: 5px;
+}
+
+#iconOptions button.selected {
+    border: 2px solid blue;
+}
+
+#angleSelector {
+    margin-top: 10px;
+    text-align: center;
+}
+
+#angleSelector svg {
+    cursor: pointer;
+    display: block;
+    margin: 0 auto;
+}
+
+#control button {
+    margin-top: 5px;
+    display: block;
+    width: 100%;
+}
+
+#projectSettingsTab label {
+    display: block;
+    margin-top: 5px;
+}
+
+#tileLayerList {
+    margin-top: 5px;
+}
+
+#tileLayerList label {
+    display: block;
+}
+
+#projectNameLabel {
+    font-size: 0.8rem;
+}
+
+#projectNameInput {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+label[for="pavementStroke"] {
+    display: none;
+}
+
+#pavementStroke {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+    width: 0;
+    height: 0;
+}

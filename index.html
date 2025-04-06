@@ -49,7 +49,7 @@
             <button id="tabPavementColor" class="tab">Pavements</button>
             <button id="tabProjectSettings" class="tab">Project Settings</button>
         </div>
-        <!-- Pavement Markings Tab -->
+        <!-- Pavement Markings Tab --><div id="selectedIconInfo" style="margin: 10px 0; font-weight: bold;">Selected Icon: None</div>
         <div id="pavementTab" class="tabContent">Ground Control
             <div id="iconOptions">
                 <button class="iconButton" data-icon="img/bikelane.png">
@@ -114,6 +114,12 @@
                 </button>
                 <button class="iconButton" data-icon="img/football.png">
                     <img src="img/football.png" alt="Protected intersection curb" style="width: 30px;">
+                </button>
+                <button class="iconButton" data-icon="img/left-small.png">
+                    <img src="img/left-small.png" alt="Left turn (small)" style="width: 30px;">
+                </button>
+                <button class="iconButton" data-icon="img/bike-symbol-2.png">
+                    <img src="img/bike-symbol-2.png" alt="Bike Symbol 2" style="width: 30px;">
                 </button>
             </div>
             <p></p>Sign/Signal Control
@@ -194,6 +200,7 @@
             <!-- <button id="saveLaneLineEdits">Save Lane Line Edits</button> -->
             <button id="removeLaneLine">Remove Selected Line (R)</button>
             <button id="newOffsetLine">New Offset Line (O)</button>
+            <button id="calcRadius">Calculate Radius</button>
         </div>
         <!-- Pavement Color Tab -->
         <div id="pavementColorTab" class="tabContent" style="display: none;">
@@ -234,6 +241,7 @@
 
     <!-- Leaflet JS and plugins -->
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf/turf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/leaflet-editable@1.2.0/src/Leaflet.Editable.js"></script>
     <script src="https://ppete2.github.io/Leaflet.PolylineMeasure/Leaflet.PolylineMeasure.js"></script>

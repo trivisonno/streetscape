@@ -7,6 +7,7 @@ const laneLines = [];
 let selectedPavementPolygon = null;
 const pavementPolygons = [];
 let markersEnabled = true;
+let highlightCircleRadius = 20;
 
 // Global variable to store the current settings
 let currentSettings = {
@@ -44,12 +45,12 @@ const esriTiles = L.tileLayer('https://gis.cuyahogacounty.us/server/rest/service
     attribution: '<a href="https://geospatial.gis.cuyahogacounty.gov/" target="_blank">Cuyahoga County GIS</a>'
 }).addTo(map);
 
-const esriTilesProxy = L.tileLayer('https://ggsyu5e4m3.execute-api.us-east-1.amazonaws.com/dev/{z}/{y}/{x}', {
-        maxNativeZoom: 21,
-        maxZoom: 23,
-        zoomOffset: -10,
-        attribution: '<a href="https://geospatial.gis.cuyahogacounty.gov/" target="_blank">Cuyahoga County GIS</a>'
-    });
+// const esriTilesProxy = L.tileLayer('https://ggsyu5e4m3.execute-api.us-east-1.amazonaws.com/dev/{z}/{y}/{x}', {
+//         maxNativeZoom: 21,
+//         maxZoom: 23,
+//         zoomOffset: -10,
+//         attribution: '<a href="https://geospatial.gis.cuyahogacounty.gov/" target="_blank">Cuyahoga County GIS</a>'
+//     });
 
 const osmTiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxNativeZoom: 19,
@@ -125,7 +126,7 @@ const markersLayer = L.featureGroup().addTo(map);
         "OpenStreetMap": osmTiles,
         "Google Satellite": satellite,
         "Google Hybrid": hybrid,
-        "Cuyahoga County Proxy": esriTilesProxy
+        // "Cuyahoga County Proxy": esriTilesProxy
     };
 
 // Add these layers to the layer control
@@ -286,8 +287,8 @@ function getIconForZoom(zoom, iconUrl, className = 'marker-icon-default') {
     let baseHeight = 90, baseWidth = baseHeight / 3;
 
     if (className == 'marker-icon-sign') {
-        baseWidth = 60;
-        baseHeight = 180;
+        baseWidth = 45;
+        baseHeight = 135;
     }
     
     // If iconUrl starts with "svg:", generate inline SVG.
@@ -317,7 +318,7 @@ function highlightMarker(marker) {
     if (highlightCircle) { map.removeLayer(highlightCircle); }
     const factor = Math.pow(0.5, 21 - map.getZoom());
     highlightCircle = L.circleMarker(marker.getLatLng(), {
-        radius: 40 * factor,
+        radius: highlightCircleRadius * factor,
         color: 'red',
         weight: 2,
         fill: false
@@ -338,6 +339,13 @@ iconButtons.forEach(btn => {
         currentIconUrl = e.currentTarget.getAttribute('data-icon');
         iconButtons.forEach(b => b.classList.remove('selected'));
         e.currentTarget.classList.add('selected');
+
+        // Display the alt-text of the selected icon
+        const selectedIconAltText = e.currentTarget.querySelector('img').alt;
+        const iconInfoDiv = document.getElementById('selectedIconInfo');
+        if (iconInfoDiv) {
+            iconInfoDiv.textContent = `Selected Icon: ${selectedIconAltText}`;
+        }
     });
 });
 
@@ -403,7 +411,7 @@ map.on('click', function (e) {
             document.getElementById('angleLine').setAttribute('y2', 50 - 40 * Math.cos(rad));
         });
         addMarkerToLayer(marker);
-    }
+    } 
     else if (laneTab.style.display !== "none") {
         deselectAllLineStrings(); // Deselect all line strings when clicking on the map
     }
@@ -416,6 +424,14 @@ map.on('click', function (e) {
         }
     }
 });
+
+document.getElementById('removeMarker').addEventListener('click', function () {
+    if (selectedMarker) {
+        map.removeLayer(selectedMarker);
+            selectedPavementPolygon = null;
+        }
+    }
+);
 
 document.getElementById('removeMarker').addEventListener('click', function () {
     if (selectedMarker) {
@@ -1260,7 +1276,7 @@ map.on('zoomend', function () {
     });
     if (highlightCircle && selectedMarker) {
         const factor = Math.pow(0.5, 21 - currentZoom);
-        highlightCircle.setRadius(40 * factor);
+        highlightCircle.setRadius(highlightCircleRadius * factor);
         highlightCircle.setLatLng(selectedMarker.getLatLng());
     }
     laneLines.forEach(line => {
@@ -1473,6 +1489,23 @@ function deselectAllFeatures() {
         }
         selectedPavementPolygon = null;
     }
+
+    // Deselect all icon marker buttons
+    const iconButtons = document.querySelectorAll('.iconButton');
+    iconButtons.forEach(button => button.classList.remove('selected'));
+    // Display the alt-text of the selected icon
+    document.getElementById('selectedIconInfo').textContent = "Selected Icon: None";
+    
+
+    // Deselect all callout lines
+    dimensionsLayer.eachLayer(layer => {
+        if (layer instanceof L.Polyline && layer.options.type === "callout") {
+            if (layer.editEnabled && layer.editEnabled()) {
+                layer.disableEdit();
+            }
+        }
+    });
+
 }
 
 // Add event listener for the "Esc" key
@@ -1848,6 +1881,7 @@ map.on('zoomend', resizeTextLabels);
 
 // Function to start drawing a callout line
 function startDrawingCalloutLine() {
+    deselectAllFeatures(); // Deselect any selected features
     const calloutColor = "#ffffff"; // Default color for callout lines
     const calloutWidth = 2; // Default width for callout lines
 
@@ -1903,4 +1937,45 @@ function startDrawingCalloutLine() {
 
 // Add event listener to the "Add Callout Line" button
 document.getElementById('addCalloutLine').addEventListener('click', startDrawingCalloutLine);
+
+// Function to calculate the radius of a polyline
+function calculateRadius(line) {
+    const latlngs = line.getLatLngs();
+    if (latlngs.length < 3) {
+        return null; // A radius cannot be calculated with fewer than 3 points
+    }
+
+    const coords = latlngs.map(ll => [ll.lng, ll.lat]);
+    const lineString = turf.lineString(coords);
+    const smoothedLine = turf.simplify(lineString, { tolerance: 0.0001, highQuality: true });
+
+    // Fit a circle to the simplified line
+    const center = turf.center(smoothedLine);
+    const distances = smoothedLine.geometry.coordinates.map(coord => {
+        return turf.distance(center, turf.point(coord), { units: 'meters' });
+    });
+
+    const avgRadiusMeters = distances.reduce((sum, dist) => sum + dist, 0) / distances.length;
+    const avgRadiusFeet = avgRadiusMeters * 3.28084; // Convert meters to feet
+    return avgRadiusFeet.toFixed(1); // Return radius in feet, rounded to 2 decimals
+}
+
+// Event listener for the "Calculate Radius" button
+document.getElementById('calcRadius').addEventListener('click', function () {
+    if (!selectedLaneLine) {
+        alert("Please select a line first.");
+        return;
+    }
+
+    const radius = calculateRadius(selectedLaneLine);
+    if (radius) {
+        const popupContent = `Generalized Radius: ${radius} feet`;
+        const popup = L.popup()
+            .setLatLng(selectedLaneLine.getBounds().getCenter())
+            .setContent(popupContent)
+            .openOn(map);
+    } else {
+        alert("Unable to calculate radius. Ensure the line has at least 3 points.");
+    }
+});
 

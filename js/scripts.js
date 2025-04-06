@@ -834,6 +834,60 @@ document.getElementById('saveGeoJson').addEventListener('click', function () {
         }
     });
 
+    // Add the label feature to the GeoJSON if it exists
+    // if (labelFeature) {
+    //     features.push(labelFeature);
+    // }
+
+    // Add all label features to the GeoJSON
+    dimensionsLayer.eachLayer(label => {
+        if (label instanceof L.Marker && label.options.icon && label.options.icon.options.className === 'text-label') {
+            const labelFeature = labelFeatures.find(feature => {
+                const [lng, lat] = feature.geometry.coordinates;
+                const labelLatLng = label.getLatLng();
+                return Math.abs(lng - labelLatLng.lng) < 1e-6 && Math.abs(lat - labelLatLng.lat) < 1e-6;
+            });
+
+            if (labelFeature) {
+                features.push({
+                    type: "Feature",
+                    properties: {
+                        type: "label",
+                        text: labelFeature.properties.text,
+                        style: labelFeature.properties.style
+                    },
+                    geometry: {
+                        type: "Point",
+                        coordinates: [label.getLatLng().lng.toFixed(6), label.getLatLng().lat.toFixed(6)]
+                    }
+                });
+            }
+        }
+    });
+
+    // Save callout lines to GeoJSON
+    dimensionsLayer.eachLayer(layer => {
+        if (layer instanceof L.Polyline && layer.myStyle && layer.options.type === "callout") {
+            const latlngs = layer.getLatLngs();
+            const coords = latlngs.map(ll => [
+                Number(ll.lng.toFixed(6)),
+                Number(ll.lat.toFixed(6))
+            ]);
+
+            features.push({
+                type: "Feature",
+                properties: {
+                    type: "callout",
+                    style: layer.myStyle
+                },
+                geometry: {
+                    type: "LineString",
+                    coordinates: coords
+                }
+            });
+        }
+    });
+
     // Project settings:
     const project = {
         name: document.getElementById('projectNameInput').value || document.getElementById('projectNameLabel').textContent,
@@ -977,6 +1031,148 @@ function loadFeaturesFromGeoJson(geojson) {
                 }
                 addPavementPolygonToLayer(poly);
             }
+            // Handle text labels
+            if (feature.geometry.type === "Point" && feature.properties.type === "label") {
+                const coords = feature.geometry.coordinates;
+                const latlng = L.latLng(coords[1], coords[0]);
+                const text = feature.properties.text;
+                const style = feature.properties.style;
+
+                const label = L.marker(latlng, {
+                    icon: L.divIcon({
+                        className: 'text-label',
+                        html: `<div style="color: ${style.color}; font-size: ${style.fontSize}; white-space: pre; word-wrap: break-word; margin: 0;">${text}</div>`,
+                        iconSize: null
+                    }),
+                    draggable: true,
+                    pane: 'overlayPane'
+                }).addTo(dimensionsLayer);
+
+                // Ensure the label is added to the labelFeatures array
+                const labelFeature = {
+                    type: "Feature",
+                    properties: {
+                        type: "label",
+                        text: text,
+                        style: style
+                    },
+                    geometry: {
+                        type: "Point",
+                        coordinates: [latlng.lng.toFixed(6), latlng.lat.toFixed(6)]
+                    }
+                };
+                labelFeatures.push(labelFeature);
+
+                // Add dragend event to update label coordinates in labelFeatures
+                label.on('dragend', function () {
+                    const newLatLng = label.getLatLng();
+                    const labelFeatureIndex = labelFeatures.findIndex(feature => {
+                        const [lng, lat] = feature.geometry.coordinates;
+                        return Math.abs(lng - coords[0]) < 1e-6 && Math.abs(lat - coords[1]) < 1e-6;
+                    });
+
+                    if (labelFeatureIndex !== -1) {
+                        labelFeatures[labelFeatureIndex].geometry.coordinates = [newLatLng.lng.toFixed(6), newLatLng.lat.toFixed(6)];
+                    } else {
+                        console.warn("Label feature not found for updating coordinates.");
+                    }
+
+                    // Ensure the label resizes properly after being dragged
+                    resizeTextLabels();
+                });
+
+                // Add click event for editing
+                label.on('click', function () {
+                    const popupContent = `
+                        <textarea id="labelTextArea" style="width: 200px; height: 100px;">${text}</textarea><br>
+                        <label>
+                            <input type="radio" name="textColor" value="black" ${style.color === 'black' ? 'checked' : ''}> Black
+                        </label>
+                        <label>
+                            <input type="radio" name="textColor" value="white" ${style.color === 'white' ? 'checked' : ''}> White
+                        </label><br>
+                        <button id="saveLabel">Save</button>
+                        <button id="deleteLabel">Delete</button>
+                    `;
+
+                    const popup = L.popup()
+                        .setLatLng(label.getLatLng())
+                        .setContent(popupContent)
+                        .openOn(map);
+
+                    // Save button functionality
+                    document.getElementById('saveLabel').addEventListener('click', function () {
+                        const newText = document.getElementById('labelTextArea').value;
+                        const newColor = document.querySelector('input[name="textColor"]:checked').value;
+
+                        // Update label text and style
+                        labelFeature.properties.text = newText;
+                        labelFeature.properties.style.color = newColor;
+                        label.setIcon(L.divIcon({
+                            className: 'text-label',
+                            html: `<div style="color: ${newColor}; font-size: ${style.fontSize}; white-space: pre; word-wrap: break-word; margin: 0;">${newText}</div>`,
+                            iconSize: null
+                        }));
+
+                        map.closePopup();
+                    });
+
+                    // Delete button functionality
+                    document.getElementById('deleteLabel').addEventListener('click', function () {
+                        map.removeLayer(label);
+                        dimensionsLayer.removeLayer(label);
+                        const idx = labelFeatures.indexOf(labelFeature);
+                        if (idx > -1) labelFeatures.splice(idx, 1);
+                        map.closePopup();
+                    });
+                });
+            }
+
+            // Handle callout lines
+            if (feature.geometry.type === "LineString" && feature.properties.type === "callout") {
+                const coords = feature.geometry.coordinates;
+                const latlngs = coords.map(c => L.latLng(c[1], c[0]));
+                const style = feature.properties.style;
+
+                const polyline = L.polyline(latlngs, {
+                    color: style.color,
+                    weight: style.weight,
+                    lineJoin: style.lineJoin,
+                    lineCap: style.lineCap,
+                    pane: 'overlayPane'
+                }).arrowheads({
+                    size: '0.5m',
+                    frequency: 'endonly'
+                }).addTo(dimensionsLayer);
+
+                // Explicitly set the `myStyle` property with the `type` field
+                polyline.myStyle = {
+                    color: style.color,
+                    weight: style.weight,
+                    lineJoin: style.lineJoin,
+                    lineCap: style.lineCap
+                };
+                polyline.options.type = 'callout'; // Explicitly set the type
+
+                // Make the callout line editable on click
+                polyline.on('click', function () {
+                    if (polyline.editEnabled()) {
+                        polyline.disableEdit();
+                    } else {
+                        polyline.enableEdit();
+                    }
+                });
+
+                // Add zoom behavior for the callout line
+                map.on('zoomend', function () {
+                    const currentZoom = map.getZoom();
+                    const zoomFactor = Math.pow(0.5, 21 - currentZoom);
+                    const scaledWeight = style.weight * zoomFactor;
+                    polyline.setStyle({
+                        weight: scaledWeight
+                    });
+                });
+            }
         });
 
         // Update project settings if available.
@@ -1085,6 +1281,7 @@ map.on('zoomend', function () {
             line.setStyle({ weight: originalWeight });
         }
     });
+    resizeTextLabels();
 });
 
 function updatePavementPaneInteractivity() {
@@ -1156,22 +1353,43 @@ document.getElementById('updateProjectSettings').addEventListener('click', funct
 });
 
 document.addEventListener('keydown', function (e) {
-    if (isProjectNameInputFocused) return; // Skip shortcuts if input is focused
+    if (disableKeyShortcuts) return; // Skip shortcuts if editing text or project name
 
     if (e.key === 'l') {
         showTabLaneLines();
-        // Call the function that begins drawing a new lane line.
         startDrawingLaneLine();
-    }
-});
-
-document.addEventListener('keydown', function (e) {
-    if (isProjectNameInputFocused) return; // Skip shortcuts if input is focused
-
-    if (e.key === 'o') {
-        // showTabLaneLines();
-        // Call the function that begins drawing a new lane line.
+    } else if (e.key === 'o') {
         createOffsetLine();
+    } else if (e.key === 'Escape') {
+        deselectAllFeatures();
+    } else if (e.key === 'r') {
+        if (selectedMarker) {
+            map.removeLayer(selectedMarker);
+            const idx = markers.indexOf(selectedMarker);
+            if (idx > -1) markers.splice(idx, 1);
+            deselectMarker();
+        } else if (selectedLaneLine) {
+            laneLinesLayer.removeLayer(selectedLaneLine);
+            const idx = laneLines.indexOf(selectedLaneLine);
+            if (idx > -1) laneLines.splice(idx, 1);
+            selectedLaneLine = null;
+            removeArrowheads();
+        }
+    } else if (e.key === 'f') {
+        const angleValue = document.getElementById('angleValue');
+        let currentAngle = parseInt(angleValue.textContent);
+        currentAngle = (currentAngle + 180) % 360;
+        angleValue.textContent = currentAngle + '°';
+        const rad = currentAngle * Math.PI / 180;
+        document.getElementById('angleLine').setAttribute('x2', 50 + 40 * Math.sin(rad));
+        document.getElementById('angleLine').setAttribute('y2', 50 - 40 * Math.cos(rad));
+        if (selectedMarker) {
+            selectedMarker.setRotationAngle(currentAngle);
+        }
+    } else if (e.key === 't') {
+        document.getElementById('addTextLabel').click(); // Trigger adding a text label
+    } else if (e.key === 'c') {
+        document.getElementById('addCalloutLine').click(); // Trigger adding a callout line
     }
 });
 
@@ -1259,7 +1477,7 @@ function deselectAllFeatures() {
 
 // Add event listener for the "Esc" key
 document.addEventListener('keydown', function (e) {
-    if (isProjectNameInputFocused) return; // Skip shortcuts if input is focused
+    if (disableKeyShortcuts) return; // Skip shortcuts if editing text or project name
 
     if (e.key === 'Escape') {
         deselectAllFeatures();
@@ -1347,7 +1565,7 @@ function deselectAllLineStrings() {
 
 // Add event listener for the 'Delete' key
 document.addEventListener('keydown', function (e) {
-    if (isProjectNameInputFocused) return; // Skip shortcuts if input is focused
+    if (disableKeyShortcuts) return; // Skip shortcuts if editing text or project name
 
     if (e.key === 'r') {
         if (selectedMarker) {
@@ -1369,7 +1587,7 @@ document.addEventListener('keydown', function (e) {
 
 // Add event listener for the 'F' key to run the rotate180 function
 document.addEventListener('keydown', function (e) {
-    if (isProjectNameInputFocused) return; // Skip shortcuts if input is focused
+    if (disableKeyShortcuts) return; // Skip shortcuts if editing text or project name
 
     if (e.key === 'f') {
         const angleValue = document.getElementById('angleValue');
@@ -1459,14 +1677,230 @@ document.getElementById('loadGeoJson').addEventListener('change', function (e) {
 });
 
 // Disable shortcut keys when projectNameInput is focused
-let isProjectNameInputFocused = false;
+let disableKeyShortcuts = false;
 
 // Update the global variable on focus/blur events
 const projectNameInput = document.getElementById('projectNameInput');
 projectNameInput.addEventListener('focus', function () {
-    isProjectNameInputFocused = true;
+    disableKeyShortcuts = true;
 });
 
 projectNameInput.addEventListener('blur', function () {
-    isProjectNameInputFocused = false;
+    disableKeyShortcuts = false;
 });
+
+// Array to store label features
+const labelFeatures = [];
+
+// Function to add a text label to the map center
+document.getElementById('addTextLabel').addEventListener('click', function () {
+    const center = map.getCenter();
+    const labelText = 'Label'; // Use HTML with styles
+
+    const label = L.marker(center, {
+        icon: L.divIcon({
+            className: 'text-label',
+            html: `<div style="color: white; font-size: 16px; white-space: pre; word-wrap: break-word; margin: 0;">${labelText}</div>`, // Use plain text with styles
+            iconSize: null // Let the size adjust automatically to the text
+        }),
+        draggable: true,
+        pane: 'overlayPane'
+    }).addTo(dimensionsLayer);
+
+    // Store the label as a GeoJSON feature
+    const labelFeature = {
+        type: "Feature",
+        properties: {
+            type: "label",
+            text: labelText,
+            style: { color: "white", fontSize: "16px" } // Default text color and font size
+        },
+        geometry: {
+            type: "Point",
+            coordinates: [center.lng.toFixed(6), center.lat.toFixed(6)]
+        }
+    };
+    labelFeatures.push(labelFeature);
+
+    // Add dragend event to update label coordinates in labelFeatures
+    label.on('dragend', function () {
+        const newLatLng = label.getLatLng();
+        const labelFeatureIndex = labelFeatures.findIndex(feature => {
+            const [lng, lat] = feature.geometry.coordinates;
+            return Math.abs(lng - labelFeature.geometry.coordinates[0]) < 1e-6 && Math.abs(lat - labelFeature.geometry.coordinates[1]) < 1e-6;
+        });
+
+        if (labelFeatureIndex !== -1) {
+            labelFeatures[labelFeatureIndex].geometry.coordinates = [newLatLng.lng, newLatLng.lat];
+        } else {
+            console.warn("Label feature not found for updating coordinates.");
+        }
+    });
+
+    // Add click event to open a popup for editing
+    label.on('click', function () {
+        const popupContent = `
+            <textarea id="labelTextArea" style="width: 200px; height: 100px;">${labelFeature.properties.text}</textarea><br>
+            <label>
+                <input type="radio" name="textColor" value="black" ${labelFeature.properties.style.color === 'black' ? 'checked' : ''}> Black
+            </label>
+            <label>
+                <input type="radio" name="textColor" value="white" ${labelFeature.properties.style.color === 'white' ? 'checked' : ''}> White
+            </label><br>
+            <button id="saveLabel">Save</button>
+            <button id="deleteLabel">Delete</button>
+        `;
+
+        const popup = L.popup()
+            .setLatLng(label.getLatLng())
+            .setContent(popupContent)
+            .openOn(map);
+
+        // Disable key shortcuts while editing
+        disableKeyShortcuts = true;
+
+        // Highlight all text in the textarea when the popup opens
+        setTimeout(() => {
+            const textArea = document.getElementById('labelTextArea');
+            textArea.select();
+            textArea.addEventListener('blur', () => {
+                disableKeyShortcuts = false; // Re-enable key shortcuts when editing is done
+            });
+        }, 0);
+
+        // Save button functionality
+        document.getElementById('saveLabel').addEventListener('click', function () {
+            const currentZoom = map.getZoom();
+            const factor = Math.pow(0.5, 21 - currentZoom);
+
+            const newText = document.getElementById('labelTextArea').value;
+            const newColor = document.querySelector('input[name="textColor"]:checked').value;
+            const fontSize = `${16 * factor}px`;
+
+            // Update label text and style
+            labelFeature.properties.text = newText;
+            labelFeature.properties.style.color = newColor;
+            label.setIcon(L.divIcon({
+                className: 'text-label',
+                html: `<div style="color: ${newColor}; white-space: pre; word-wrap: break-word; margin: 0; font-size: ${fontSize};">${newText}</div>`, // Set text color and font size
+                iconSize: null
+            }));
+
+            map.closePopup();
+            disableKeyShortcuts = false; // Re-enable key shortcuts
+        });
+
+        // Delete button functionality
+        document.getElementById('deleteLabel').addEventListener('click', function () {
+            map.removeLayer(label); // Remove from map
+            dimensionsLayer.removeLayer(label); // Remove from dimensionsLayer
+            const idx = labelFeatures.indexOf(labelFeature);
+            if (idx > -1) labelFeatures.splice(idx, 1); // Remove from labelFeatures array
+            map.closePopup();
+            disableKeyShortcuts = false; // Re-enable key shortcuts
+        });
+    });
+});
+
+// Ensure labels hide/show when toggling the Dimensions layer
+map.on('overlayadd', function (e) {
+    if (e.name === "Dimensions") {
+        dimensionsLayer.eachLayer(layer => layer.addTo(map));
+    }
+});
+
+map.on('overlayremove', function (e) {
+    if (e.name === "Dimensions") {
+        dimensionsLayer.eachLayer(layer => map.removeLayer(layer));
+    }
+});
+
+// Function to resize text labels based on zoom level
+function resizeTextLabels() {
+    const currentZoom = map.getZoom();
+    const factor = Math.pow(0.5, 21 - currentZoom);
+
+    dimensionsLayer.eachLayer(label => {
+        if (label instanceof L.Marker && label.options.icon && label.options.icon.options.className === 'text-label') {
+            const labelFeature = labelFeatures.find(feature => {
+                const [lng, lat] = feature.geometry.coordinates;
+                const labelLatLng = label.getLatLng();
+                return Math.abs(lng - labelLatLng.lng) < 1e-6 && Math.abs(lat - labelLatLng.lat) < 1e-6;
+            });
+
+            if (labelFeature) {
+                const text = labelFeature.properties.text;
+                const color = labelFeature.properties.style.color;
+                const fontSize = `${16 * factor}px`; // Scale font size based on zoom level
+
+                label.setIcon(L.divIcon({
+                    className: 'text-label',
+                    html: `<div style="color: ${color}; white-space: pre; word-wrap: break-word; margin: 0; font-size: ${fontSize};">${text}</div>`, // Preserve user-defined line breaks and prevent forced wrapping
+                    iconSize: null
+                }));
+            }
+        }
+    });
+}
+
+// Listen for zoom changes to resize text labels
+map.on('zoomend', resizeTextLabels);
+
+// Function to start drawing a callout line
+function startDrawingCalloutLine() {
+    const calloutColor = "#ffffff"; // Default color for callout lines
+    const calloutWidth = 2; // Default width for callout lines
+
+    const polyline = map.editTools.startPolyline().arrowheads({
+        size: '0.5m',
+        frequency: 'endonly',
+        color: '#ffffff'
+    });
+    polyline.on('editable:drawing:end', function () {
+        const latlngs = polyline.getLatLngs();
+        if (!latlngs || latlngs.length < 2) {
+            console.error("Invalid callout line");
+            return;
+        }
+        if (polyline.disableEdit) {
+            polyline.disableEdit();
+        }
+        polyline.setStyle({
+            color: calloutColor,
+            weight: calloutWidth,
+            lineJoin: "round",
+            lineCap: "square"
+        });
+        polyline.myStyle = {
+            color: calloutColor,
+            weight: calloutWidth,
+            lineJoin: "round",
+            lineCap: "square"
+        };
+        polyline.options.type = 'callout'; // Explicitly set the type
+        dimensionsLayer.addLayer(polyline);
+
+        // Add zoom behavior for the callout line
+        map.on('zoomend', function () {
+            const currentZoom = map.getZoom();
+            const zoomFactor = Math.pow(0.5, 21 - currentZoom);
+            const scaledWeight = calloutWidth * zoomFactor;
+            polyline.setStyle({
+                weight: scaledWeight,
+            });
+        });
+
+        // Make the callout line editable
+        polyline.on('click', function () {
+            if (polyline.editEnabled()) {
+                polyline.disableEdit();
+            } else {
+                polyline.enableEdit();
+            }
+        });
+    });
+}
+
+// Add event listener to the "Add Callout Line" button
+document.getElementById('addCalloutLine').addEventListener('click', startDrawingCalloutLine);
+

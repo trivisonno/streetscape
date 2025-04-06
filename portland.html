@@ -444,13 +444,6 @@
             zoomOffset: 0
         }).addTo(map);
 
-        const esriTilesProxy = L.tileLayer('https://ggsyu5e4m3.execute-api.us-east-1.amazonaws.com/dev/{z}/{y}/{x}', {
-                maxNativeZoom: 21,
-                maxZoom: 23,
-                zoomOffset: -10,
-                attribution: '<a href="https://geospatial.gis.cuyahogacounty.gov/" target="_blank">Cuyahoga County GIS</a>'
-            });
-
         
 
         const osmTiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {

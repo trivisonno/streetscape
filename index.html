@@ -115,6 +115,9 @@
                 <button class="iconButton" data-icon="img/football.png">
                     <img src="img/football.png" alt="Protected intersection curb" style="width: 30px;">
                 </button>
+                <button class="iconButton" data-icon="img/vertical-delineator.svg">
+                    <img src="img/vertical-delineator.svg" alt="Vertical delineator" style="width: 30px;">
+                </button>
                 <button class="iconButton" data-icon="img/left-small.png">
                     <img src="img/left-small.png" alt="Left turn (small)" style="width: 30px;">
                 </button>
@@ -207,8 +210,18 @@
             <div>
                 <label for="pavementStroke">Stroke Color:</label>
                 <input type="color" id="pavementStroke" value="#222222"><br>
+                
                 <label for="pavementFill">Pavement Color:</label>
-                <input type="color" id="pavementFill" value="#222222"><br>
+                <input type="color" id="pavementFill" value="#222222" list="pavementFillColors">
+                <datalist id="pavementFillColors">
+                    <option value="#000000">Black</option>
+                    <option value="#808080">Gray</option>
+                    <option value="#FFFFFF">White</option>
+                    <option value="#FF0000">Red</option>
+                    <option value="#008000">Green</option>
+                    <option value="#FFFF00">Yellow</option>
+                    <option value="#0000FF">Blue</option>
+                </datalist><br>
                 <label for="pavementFillOpacity">Pavement Opacity:</label>
                 <input type="range" id="pavementFillOpacity" min="0" max="1" step="0.1" value="1">
                 <span id="pavementFillOpacityValue">1</span>

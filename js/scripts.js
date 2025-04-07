@@ -7,7 +7,7 @@ const laneLines = [];
 let selectedPavementPolygon = null;
 const pavementPolygons = [];
 let markersEnabled = true;
-let highlightCircleRadius = 20;
+let highlightCircleRadius = 25;
 
 // Global variable to store the current settings
 let currentSettings = {
@@ -99,7 +99,9 @@ tileLayers.push({ name: "OpenStreetMap", url: 'https://{s}.tile.openstreetmap.or
 
 // Create separate layer groups.
 const pavementPolygonsLayer = L.featureGroup().addTo(map); // Underneath other features
-const laneLinesLayer = L.featureGroup().addTo(map);
+map.createPane('linesPane');
+map.getPane('linesPane').style.zIndex = 350; // Below overlayPane (zIndex 400) for markers
+const laneLinesLayer = L.featureGroup({ pane: 'linesPane' }).addTo(map);
 const signMarkersLayer = L.featureGroup().addTo(map); // Layer for sign icons
     const dimensionsLayer = L.featureGroup().addTo(map);
 
@@ -162,6 +164,7 @@ function addMarkerToLayer(marker) {
 }
 
 function addLaneLineToLayer(line) {
+    line.options.pane = 'linesPane'; // Assign lines to the new pane
     laneLinesLayer.addLayer(line);
 }
 
@@ -515,19 +518,8 @@ function startDrawingLaneLine() {
 document.getElementById('drawLaneLine').addEventListener('click', function () {
     startDrawingLaneLine();
 });
-// document.getElementById('editLaneLine').addEventListener('click', function () {
-//     if (selectedLaneLine) { selectedLaneLine.enableEdit(); }
-// });
-// document.getElementById('saveLaneLineEdits').addEventListener('click', function () {
-//     if (selectedLaneLine) {
-//         selectedLaneLine.disableEdit();
-//         const newColor = document.querySelector('input[name="laneColor"]:checked').value;
-//         const newWidth = parseInt(document.querySelector('input[name="laneWidth"]:checked').value, 10);
-//         const newDash = document.querySelector('input[name="laneDash"]:checked').value;
-//         selectedLaneLine.myStyle = { color: newColor, weight: newWidth, dashArray: newDash, lineJoin: "round", lineCap: "square" };
-//         selectedLaneLine.setStyle({ color: newColor, weight: newWidth, dashArray: newDash, lineJoin: "round", lineCap: "square" });
-//     }
-// });
+
+
 document.getElementById('removeLaneLine').addEventListener('click', function () {
     if (selectedLaneLine) {
         laneLinesLayer.removeLayer(selectedLaneLine);
@@ -1594,6 +1586,8 @@ function deselectAllLineStrings() {
         selectedLaneLine = null;
         restoreSelectors();
     }
+
+    
 }
 
 // Add event listener for the 'Delete' key
@@ -1932,6 +1926,7 @@ function startDrawingCalloutLine() {
                 polyline.enableEdit();
             }
         });
+
     });
 }
 

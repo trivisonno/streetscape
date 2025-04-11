@@ -194,6 +194,9 @@ Cross traffic does not stop " style="width: 30px;">
                 <label>
                     <input type="radio" name="laneColor" value="#ffff00">
                     Yellow
+                </label><label>
+                    <input type="radio" name="laneColor" value="#ff0000">
+                    Red
                 </label><br>
 
                 <!-- Lane Width -->
@@ -274,6 +277,18 @@ Cross traffic does not stop " style="width: 30px;">
         </div><button id="loadGeoJsonBtn">&#128194; Load Design .geojson file</button>
         <button id="saveGeoJson">&#128190; Save Design .geojson file</button>
         <input type="file" id="loadGeoJson" style="display: none;">
+    </div>
+
+    <div id="offsetModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h3>Generate Offset Lines</h3>
+            <label for="offsetDistance">Offset Distance (feet):</label>
+            <input type="number" id="offsetDistance" step="1" value="10"><br>
+            <label for="numOffsetLines">Number of Offset Lines:</label>
+            <input type="number" id="numOffsetLines" step="1" value="1"><br>
+            <button id="offsetModalSubmit">Generate</button>
+            <button id="offsetModalCancel">Cancel</button>
+        </div>
     </div>
 
     <!-- Leaflet JS and plugins -->

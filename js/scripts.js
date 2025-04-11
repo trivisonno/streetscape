@@ -571,77 +571,88 @@ document.querySelectorAll('input[name="laneDash"]').forEach(input => {
 // Function to offset a line by X feet
 function offsetLine(line, offsetFeet) {
     const latlngs = line.getLatLngs();
-    units = 'feet';
-    distance = offsetFeet;
     const offsetMeters = offsetFeet * 0.3048; // Convert feet to meters
     const coords = latlngs.map(ll => [ll.lng, ll.lat]);
 
     // Use Turf.js to calculate the offset line
     const lineString = turf.lineString(coords);
     const lineCoords = lineString.geometry.coordinates;
-    const transformAngle = distance < 0 ? -90 : 90;
-    if (distance < 0) distance = -distance;
+    const transformAngle = offsetFeet < 0 ? -90 : 90;
 
     const offsetLines = [];
-    for (let i = 0; i < lineCoords.length - 1; i++) { // Translating each segment of the line to correct position
+    for (let i = 0; i < lineCoords.length - 1; i++) {
         const angle = turf.bearing(lineCoords[i], lineCoords[i + 1]) + transformAngle;
-        const firstPoint = turf.transformTranslate(turf.point(lineCoords[i]), distance, angle, { units })?.geometry.coordinates;
-        const secondPoint = turf.transformTranslate(turf.point(lineCoords[i + 1]), distance, angle, { units })?.geometry.coordinates;
+        const firstPoint = turf.transformTranslate(turf.point(lineCoords[i]), Math.abs(offsetMeters), angle, { units: 'meters' }).geometry.coordinates;
+        const secondPoint = turf.transformTranslate(turf.point(lineCoords[i + 1]), Math.abs(offsetMeters), angle, { units: 'meters' }).geometry.coordinates;
         offsetLines.push([firstPoint, secondPoint]);
     }
 
-    const offsetCoords = [offsetLines[0][0]]; // First point inserted
-    for (let i = 0; i < offsetLines.length; i++) { // For each translated segment of the initial line
-        if (offsetLines[i + 1]) { // If there's another segment after this one
-            const firstLine = turf.transformScale(turf.lineString(offsetLines[i]), 2); // transformScale is useful in case the two segment don't have an intersection point
-            const secondLine = turf.transformScale(turf.lineString(offsetLines[i + 1]), 2); // Which happen when the resulting offset line is bigger than the initial one
-            // We're calculating the intersection point between the two translated & scaled segments
-            if (turf.lineIntersect(firstLine, secondLine).features[0]) {
-                offsetCoords.push(turf.lineIntersect(firstLine, secondLine).features[0].geometry.coordinates);
+    const offsetCoords = [offsetLines[0][0]];
+    for (let i = 0; i < offsetLines.length; i++) {
+        if (offsetLines[i + 1]) {
+            const firstLine = turf.transformScale(turf.lineString(offsetLines[i]), 2);
+            const secondLine = turf.transformScale(turf.lineString(offsetLines[i + 1]), 2);
+            const intersection = turf.lineIntersect(firstLine, secondLine).features[0];
+            if (intersection) {
+                offsetCoords.push(intersection.geometry.coordinates);
             }
-        } else offsetCoords.push(offsetLines[i][1]); // If there's no other segment after this one, we simply push the last point of the line
+        } else {
+            offsetCoords.push(offsetLines[i][1]);
+        }
     }
 
-    const offsetLineString = turf.lineString(offsetCoords)
-
-    // Convert the offset line back to Leaflet LatLngs
-    const offsetCoordsOutput = offsetLineString.geometry.coordinates.map(coord => L.latLng(coord[1], coord[0]));
-    return offsetCoordsOutput;
+    return offsetCoords.map(coord => L.latLng(coord[1], coord[0]));
 }
 
-// Function to create a new offset line
-function createOffsetLine() {
+// Function to create multiple offset lines
+function createOffsetLines() {
     if (!selectedLaneLine) {
         alert("Please select a line first.");
         return;
     }
 
-    const offsetFeet = parseFloat(prompt("Enter right-side offset distance in feet (negative values will offset left-side):", "10"));
-    if (isNaN(offsetFeet)) {
-        alert("Invalid offset distance.");
-        return;
-    }
+    // Show the modal for user input
+    const modal = document.getElementById('offsetModal');
+    modal.style.display = 'block';
 
-    const offsetLatLngs = offsetLine(selectedLaneLine, offsetFeet);
-    const newLine = L.polyline(offsetLatLngs, {
-        color: selectedLaneLine.myStyle.color,
-        weight: selectedLaneLine.myStyle.weight,
-        dashArray: selectedLaneLine.myStyle.dashArray,
-        lineJoin: "round",
-        lineCap: "square"
-    }).addTo(laneLinesLayer);
+    document.getElementById('offsetModalSubmit').onclick = function () {
+        const offsetFeet = parseFloat(document.getElementById('offsetDistance').value);
+        const numLines = parseInt(document.getElementById('numOffsetLines').value, 10);
 
-    newLine.myStyle = { ...selectedLaneLine.myStyle };
-    laneLines.push(newLine);
+        if (isNaN(offsetFeet) || isNaN(numLines) || numLines < 1) {
+            alert("Invalid input. Please enter valid numbers.");
+            return;
+        }
 
-    newLine.on('click', function (ev) {
-        L.DomEvent.stopPropagation(ev);
-        selectLine(newLine);
-    });
+        for (let i = 1; i <= numLines; i++) {
+            const offsetLatLngs = offsetLine(selectedLaneLine, offsetFeet * i);
+            const newLine = L.polyline(offsetLatLngs, {
+                color: selectedLaneLine.myStyle.color,
+                weight: selectedLaneLine.myStyle.weight,
+                dashArray: selectedLaneLine.myStyle.dashArray,
+                lineJoin: "round",
+                lineCap: "square"
+            }).addTo(laneLinesLayer);
+
+            newLine.myStyle = { ...selectedLaneLine.myStyle };
+            laneLines.push(newLine);
+
+            newLine.on('click', function (ev) {
+                L.DomEvent.stopPropagation(ev);
+                selectLine(newLine);
+            });
+        }
+
+        modal.style.display = 'none'; // Close the modal
+    };
+
+    document.getElementById('offsetModalCancel').onclick = function () {
+        modal.style.display = 'none'; // Close the modal
+    };
 }
 
 // Add event listener to the "New Offset Line" button
-document.getElementById('newOffsetLine').addEventListener('click', createOffsetLine);
+document.getElementById('newOffsetLine').addEventListener('click', createOffsetLines);
 
 // --- Pavement Color (Polygon) Section ---
 document.getElementById('drawPavementPolygon').addEventListener('click', function () {
@@ -1282,8 +1293,8 @@ map.on('zoomend', function () {
             line.setStyle({ dashArray: "" });
         }
         const originalWeight = line.myStyle.weight;
-        if (currentZoom < 21) {
-            let weightFactor = Math.pow(0.5, 21 - currentZoom);
+        if (currentZoom !== 21) {
+            const weightFactor = Math.pow(0.5, 21 - currentZoom);
             line.setStyle({ weight: originalWeight * weightFactor });
         } else {
             line.setStyle({ weight: originalWeight });
@@ -1367,7 +1378,7 @@ document.addEventListener('keydown', function (e) {
         showTabLaneLines();
         startDrawingLaneLine();
     } else if (e.key === 'o') {
-        createOffsetLine();
+        createOffsetLines();
     } else if (e.key === 'Escape') {
         deselectAllFeatures();
     } else if (e.key === 'r') {

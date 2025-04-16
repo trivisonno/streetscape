@@ -31,10 +31,11 @@ function restoreSelectors() {
 }
 
 // --- Initialize Map & Layers ---
-const map = L.map('map', { maxZoom: 23, editable: true, zoomControl: false }).setView([41.4993, -81.6944], 21);
+const map = L.map('map', { maxZoom: 23, editable: true, zoomControl: false }).setView([41.48577, -81.7072], 21);
 L.control.zoom({
     position: 'bottomright'
 }).addTo(map);
+L.control.scale().addTo(map);
 map.editTools = new L.Editable(map);
 // Tile layer management (available tile layers)
 const tileLayers = [];
@@ -44,6 +45,8 @@ const esriTiles = L.tileLayer('https://gis.cuyahogacounty.us/server/rest/service
     zoomOffset: -10,
     attribution: '<a href="https://geospatial.gis.cuyahogacounty.gov/" target="_blank">Cuyahoga County GIS</a>'
 }).addTo(map);
+
+
 
 // const esriTilesProxy = L.tileLayer('https://ggsyu5e4m3.execute-api.us-east-1.amazonaws.com/dev/{z}/{y}/{x}', {
 //         maxNativeZoom: 21,
@@ -293,7 +296,18 @@ function getIconForZoom(zoom, iconUrl, className = 'marker-icon-default') {
         baseWidth = 45;
         baseHeight = 135;
     }
+
+    // Check for width and height parameters in the URL
     
+    const urlParams = new URLSearchParams(iconUrl.split('?')[1]);
+    const widthParam = urlParams.get('w');
+    const heightParam = urlParams.get('h');
+
+    if (widthParam && heightParam) {
+        baseWidth = parseInt(widthParam, 10);
+        baseHeight = parseInt(heightParam, 10);
+    }
+
     // If iconUrl starts with "svg:", generate inline SVG.
     if (iconUrl !== null && iconUrl.indexOf("svg:") === 0) {
         if (iconUrl === "svg:greenRect") {
@@ -307,7 +321,7 @@ function getIconForZoom(zoom, iconUrl, className = 'marker-icon-default') {
             iconUrl = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgContent);
         }
     }
-
+    
     const factor = Math.pow(0.5, 21 - zoom);
     return L.icon({
         iconUrl: iconUrl,
@@ -521,11 +535,15 @@ document.getElementById('drawLaneLine').addEventListener('click', function () {
 
 
 document.getElementById('removeLaneLine').addEventListener('click', function () {
-    if (selectedLaneLine) {
+    if (selectedCalloutLine) {
+        dimensionsLayer.removeLayer(selectedCalloutLine);
+        selectedCalloutLine = null;
+    } else if (selectedLaneLine) {
         laneLinesLayer.removeLayer(selectedLaneLine);
         const idx = laneLines.indexOf(selectedLaneLine);
         if (idx > -1) laneLines.splice(idx, 1);
         selectedLaneLine = null;
+        removeArrowheads();
     }
 });
 
@@ -786,7 +804,7 @@ document.getElementById('saveGeoJson').addEventListener('click', function () {
                 type: "Feature",
                 properties: {
                     type: "marking",
-                    rotation: marker.options.rotationAngle,
+                    rotation: Math.round(marker.options.rotationAngle), // Round rotation to an integer
                     icon: marker.myIconUrl
                 },
                 geometry: {
@@ -1056,6 +1074,8 @@ function loadFeaturesFromGeoJson(geojson) {
                 const latlng = L.latLng(coords[1], coords[0]);
                 const text = feature.properties.text;
                 const style = feature.properties.style;
+                // Assign or generate a unique labelId
+                const labelId = feature.id || generateUniqueId();
 
                 const label = L.marker(latlng, {
                     icon: L.divIcon({
@@ -1067,8 +1087,10 @@ function loadFeaturesFromGeoJson(geojson) {
                     pane: 'overlayPane'
                 }).addTo(dimensionsLayer);
 
-                // Ensure the label is added to the labelFeatures array
+                label.labelId = labelId;
+
                 const labelFeature = {
+                    id: labelId,
                     type: "Feature",
                     properties: {
                         type: "label",
@@ -1082,35 +1104,24 @@ function loadFeaturesFromGeoJson(geojson) {
                 };
                 labelFeatures.push(labelFeature);
 
-                // Add dragend event to update label coordinates in labelFeatures
                 label.on('dragend', function () {
                     const newLatLng = label.getLatLng();
-                    const labelFeatureIndex = labelFeatures.findIndex(feature => {
-                        const [lng, lat] = feature.geometry.coordinates;
-                        return Math.abs(lng - coords[0]) < 1e-6 && Math.abs(lat - coords[1]) < 1e-6;
-                    });
-
+                    const labelFeatureIndex = labelFeatures.findIndex(feature => feature.id === labelId);
                     if (labelFeatureIndex !== -1) {
                         labelFeatures[labelFeatureIndex].geometry.coordinates = [newLatLng.lng.toFixed(6), newLatLng.lat.toFixed(6)];
-                    } else {
-                        console.warn("Label feature not found for updating coordinates.");
                     }
-
-                    // Ensure the label resizes properly after being dragged
                     resizeTextLabels();
                 });
 
-                // Add click event for editing
                 label.on('click', function () {
                     const popupContent = `
-                        <textarea id="labelTextArea" style="width: 200px; height: 100px;">${text}</textarea><br>
+                        <textarea id="labelTextArea" style="width: 200px; height: 100px;">${labelFeature.properties.text}</textarea><br>
                         <label>
-                            <input type="radio" name="textColor" value="black" ${style.color === 'black' ? 'checked' : ''}> Black
+                            <input type="radio" name="textColor" value="black" ${labelFeature.properties.style.color === 'black' ? 'checked' : ''}> Black
                         </label>
                         <label>
-                            <input type="radio" name="textColor" value="white" ${style.color === 'white' ? 'checked' : ''}> White
+                            <input type="radio" name="textColor" value="white" ${labelFeature.properties.style.color === 'white' ? 'checked' : ''}> White
                         </label><br>
-                        <button id="saveLabel">Save</button>
                         <button id="deleteLabel">Delete</button>
                     `;
 
@@ -1119,30 +1130,60 @@ function loadFeaturesFromGeoJson(geojson) {
                         .setContent(popupContent)
                         .openOn(map);
 
-                    // Save button functionality
-                    document.getElementById('saveLabel').addEventListener('click', function () {
-                        const newText = document.getElementById('labelTextArea').value;
-                        const newColor = document.querySelector('input[name="textColor"]:checked').value;
+                    // Disable key shortcuts while editing
+                    disableKeyShortcuts = true;
 
-                        // Update label text and style
-                        labelFeature.properties.text = newText;
-                        labelFeature.properties.style.color = newColor;
-                        label.setIcon(L.divIcon({
-                            className: 'text-label',
-                            html: `<div style="color: ${newColor}; font-size: ${style.fontSize}; white-space: pre; word-wrap: break-word; margin: 0;">${newText}</div>`,
-                            iconSize: null
-                        }));
+                    // Highlight all text in the textarea when the popup opens
+                    setTimeout(() => {
+                        const textArea = document.getElementById('labelTextArea');
+                        textArea.select();
 
-                        map.closePopup();
+                        // Update label text on textarea change
+                        textArea.addEventListener('input', function () {
+                            const currentZoom = map.getZoom();
+                            const factor = Math.pow(0.5, 21 - currentZoom);
+                            const newText = textArea.value;
+                            const fontSize = `${16 * factor}px`;
+
+                            labelFeature.properties.text = newText; // Update the text in labelFeature
+                            label.setIcon(L.divIcon({
+                                className: 'text-label',
+                                html: `<div style="color: ${labelFeature.properties.style.color}; white-space: pre; word-wrap: break-word; margin: 0; font-size: ${fontSize};">${newText}</div>`,
+                                iconSize: null
+                            }));
+                        });
+                    }, 0);
+
+                    // Update label color on color selector change
+                    document.querySelectorAll('input[name="textColor"]').forEach(colorInput => {
+                        colorInput.addEventListener('change', function () {
+                            const currentZoom = map.getZoom();
+                            const factor = Math.pow(0.5, 21 - currentZoom);
+                            const newColor = this.value;
+                            const fontSize = `${16 * factor}px`;
+
+                            labelFeature.properties.style.color = newColor; // Update the color in labelFeature
+                            label.setIcon(L.divIcon({
+                                className: 'text-label',
+                                html: `<div style="color: ${newColor}; white-space: pre; word-wrap: break-word; margin: 0; font-size: ${fontSize};">${labelFeature.properties.text}</div>`,
+                                iconSize: null
+                            }));
+                        });
                     });
 
                     // Delete button functionality
                     document.getElementById('deleteLabel').addEventListener('click', function () {
-                        map.removeLayer(label);
-                        dimensionsLayer.removeLayer(label);
-                        const idx = labelFeatures.indexOf(labelFeature);
-                        if (idx > -1) labelFeatures.splice(idx, 1);
+                        map.removeLayer(label); // Remove from map
+                        dimensionsLayer.removeLayer(label); // Remove from dimensionsLayer
+                        const idx = labelFeatures.findIndex(feature => feature.id === labelId);
+                        if (idx > -1) labelFeatures.splice(idx, 1); // Remove from labelFeatures array
                         map.closePopup();
+                        disableKeyShortcuts = false; // Re-enable key shortcuts
+                    });
+
+                    // Ensure disableKeyShortcuts is reset when the popup is closed
+                    map.on('popupclose', function () {
+                        disableKeyShortcuts = false;
                     });
                 });
             }
@@ -1175,11 +1216,18 @@ function loadFeaturesFromGeoJson(geojson) {
 
                 // Make the callout line editable on click
                 polyline.on('click', function () {
+                    deselectAllFeatures()
                     if (polyline.editEnabled()) {
+
                         polyline.disableEdit();
                     } else {
                         polyline.enableEdit();
+                        if (selectedCalloutLine && selectedCalloutLine !== polyline) {
+                            deselectAllCalloutLines();
+                        }
+                        selectedCalloutLine = polyline;
                     }
+                    
                 });
 
                 // Add zoom behavior for the callout line
@@ -1393,6 +1441,15 @@ document.addEventListener('keydown', function (e) {
             if (idx > -1) laneLines.splice(idx, 1);
             selectedLaneLine = null;
             removeArrowheads();
+        } else if (selectedPavementPolygon) {
+            pavementPolygonsLayer.removeLayer(selectedPavementPolygon);
+            const idx = pavementPolygons.indexOf(selectedPavementPolygon);
+            if (idx > -1) pavementPolygons.splice(idx, 1);
+            selectedPavementPolygon = null;
+        }  
+        if (selectedCalloutLine) {
+            dimensionsLayer.removeLayer(selectedCalloutLine);
+            selectedCalloutLine = null;
         }
     } else if (e.key === 'f') {
         const angleValue = document.getElementById('angleValue');
@@ -1506,6 +1563,7 @@ function deselectAllFeatures() {
             if (layer.editEnabled && layer.editEnabled()) {
                 layer.disableEdit();
             }
+            deselectAllCalloutLines();
         }
     });
 
@@ -1619,6 +1677,12 @@ document.addEventListener('keydown', function (e) {
             if (idx > -1) laneLines.splice(idx, 1);
             selectedLaneLine = null;
             removeArrowheads(); // Ensure arrowheads are removed
+        } else if (selectedPavementPolygon) {
+            // Trigger polygon removal
+            pavementPolygonsLayer.removeLayer(selectedPavementPolygon);
+            const idx = pavementPolygons.indexOf(selectedPavementPolygon);
+            if (idx > -1) pavementPolygons.splice(idx, 1);
+            selectedPavementPolygon = null;
         }
     }
 });
@@ -1730,28 +1794,35 @@ projectNameInput.addEventListener('blur', function () {
 // Array to store label features
 const labelFeatures = [];
 
+// Function to generate a unique ID
+function generateUniqueId() {
+    return `label-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+}
+
 // Function to add a text label to the map center
 document.getElementById('addTextLabel').addEventListener('click', function () {
     const center = map.getCenter();
-    const labelText = 'Label'; // Use HTML with styles
+    const labelText = 'Label';
+    const labelId = generateUniqueId();
 
     const label = L.marker(center, {
         icon: L.divIcon({
             className: 'text-label',
-            html: `<div style="color: white; font-size: 16px; white-space: pre; word-wrap: break-word; margin: 0;">${labelText}</div>`, // Use plain text with styles
-            iconSize: null // Let the size adjust automatically to the text
+            html: `<div style="color: white; font-size: 16px; white-space: pre; word-wrap: break-word; margin: 0;">${labelText}</div>`,
+            iconSize: null
         }),
         draggable: true,
         pane: 'overlayPane'
     }).addTo(dimensionsLayer);
 
-    // Store the label as a GeoJSON feature
+    // Store the label as a GeoJSON feature with a unique ID
     const labelFeature = {
+        id: labelId,
         type: "Feature",
         properties: {
             type: "label",
             text: labelText,
-            style: { color: "white", fontSize: "16px" } // Default text color and font size
+            style: { color: "white", fontSize: "16px" }
         },
         geometry: {
             type: "Point",
@@ -1760,19 +1831,17 @@ document.getElementById('addTextLabel').addEventListener('click', function () {
     };
     labelFeatures.push(labelFeature);
 
+    // Attach labelId to the marker instance for easy reference
+    label.labelId = labelId;
+
     // Add dragend event to update label coordinates in labelFeatures
     label.on('dragend', function () {
         const newLatLng = label.getLatLng();
-        const labelFeatureIndex = labelFeatures.findIndex(feature => {
-            const [lng, lat] = feature.geometry.coordinates;
-            return Math.abs(lng - labelFeature.geometry.coordinates[0]) < 1e-6 && Math.abs(lat - labelFeature.geometry.coordinates[1]) < 1e-6;
-        });
-
+        const labelFeatureIndex = labelFeatures.findIndex(feature => feature.id === labelId);
         if (labelFeatureIndex !== -1) {
-            labelFeatures[labelFeatureIndex].geometry.coordinates = [newLatLng.lng, newLatLng.lat];
-        } else {
-            console.warn("Label feature not found for updating coordinates.");
+            labelFeatures[labelFeatureIndex].geometry.coordinates = [newLatLng.lng.toFixed(6), newLatLng.lat.toFixed(6)];
         }
+        resizeTextLabels();
     });
 
     // Add click event to open a popup for editing
@@ -1785,7 +1854,6 @@ document.getElementById('addTextLabel').addEventListener('click', function () {
             <label>
                 <input type="radio" name="textColor" value="white" ${labelFeature.properties.style.color === 'white' ? 'checked' : ''}> White
             </label><br>
-            <button id="saveLabel">Save</button>
             <button id="deleteLabel">Delete</button>
         `;
 
@@ -1801,41 +1869,53 @@ document.getElementById('addTextLabel').addEventListener('click', function () {
         setTimeout(() => {
             const textArea = document.getElementById('labelTextArea');
             textArea.select();
-            textArea.addEventListener('blur', () => {
-                disableKeyShortcuts = false; // Re-enable key shortcuts when editing is done
+
+            // Update label text on textarea change
+            textArea.addEventListener('input', function () {
+                const currentZoom = map.getZoom();
+                const factor = Math.pow(0.5, 21 - currentZoom);
+                const newText = textArea.value;
+                const fontSize = `${16 * factor}px`;
+
+                labelFeature.properties.text = newText;
+                label.setIcon(L.divIcon({
+                    className: 'text-label',
+                    html: `<div style="color: ${labelFeature.properties.style.color}; white-space: pre; word-wrap: break-word; margin: 0; font-size: ${fontSize};">${newText}</div>`,
+                    iconSize: null
+                }));
             });
         }, 0);
 
-        // Save button functionality
-        document.getElementById('saveLabel').addEventListener('click', function () {
-            const currentZoom = map.getZoom();
-            const factor = Math.pow(0.5, 21 - currentZoom);
+        // Update label color on color selector change
+        document.querySelectorAll('input[name="textColor"]').forEach(colorInput => {
+            colorInput.addEventListener('change', function () {
+                const currentZoom = map.getZoom();
+                const factor = Math.pow(0.5, 21 - currentZoom);
+                const newColor = this.value;
+                const fontSize = `${16 * factor}px`;
 
-            const newText = document.getElementById('labelTextArea').value;
-            const newColor = document.querySelector('input[name="textColor"]:checked').value;
-            const fontSize = `${16 * factor}px`;
-
-            // Update label text and style
-            labelFeature.properties.text = newText;
-            labelFeature.properties.style.color = newColor;
-            label.setIcon(L.divIcon({
-                className: 'text-label',
-                html: `<div style="color: ${newColor}; white-space: pre; word-wrap: break-word; margin: 0; font-size: ${fontSize};">${newText}</div>`, // Set text color and font size
-                iconSize: null
-            }));
-
-            map.closePopup();
-            disableKeyShortcuts = false; // Re-enable key shortcuts
+                labelFeature.properties.style.color = newColor;
+                label.setIcon(L.divIcon({
+                    className: 'text-label',
+                    html: `<div style="color: ${newColor}; white-space: pre; word-wrap: break-word; margin: 0; font-size: ${fontSize};">${labelFeature.properties.text}</div>`,
+                    iconSize: null
+                }));
+            });
         });
 
         // Delete button functionality
         document.getElementById('deleteLabel').addEventListener('click', function () {
             map.removeLayer(label); // Remove from map
             dimensionsLayer.removeLayer(label); // Remove from dimensionsLayer
-            const idx = labelFeatures.indexOf(labelFeature);
+            const idx = labelFeatures.findIndex(feature => feature.id === labelId);
             if (idx > -1) labelFeatures.splice(idx, 1); // Remove from labelFeatures array
             map.closePopup();
             disableKeyShortcuts = false; // Re-enable key shortcuts
+        });
+
+        // Ensure disableKeyShortcuts is reset when the popup is closed
+        map.on('popupclose', function () {
+            disableKeyShortcuts = false;
         });
     });
 });
@@ -1931,10 +2011,15 @@ function startDrawingCalloutLine() {
 
         // Make the callout line editable
         polyline.on('click', function () {
+            deselectAllFeatures()
             if (polyline.editEnabled()) {
                 polyline.disableEdit();
             } else {
                 polyline.enableEdit();
+                if (selectedCalloutLine && selectedCalloutLine !== polyline) {
+                    deselectAllCalloutLines();
+                }
+                selectedCalloutLine = polyline;
             }
         });
 
@@ -1984,4 +2069,141 @@ document.getElementById('calcRadius').addEventListener('click', function () {
         alert("Unable to calculate radius. Ensure the line has at least 3 points.");
     }
 });
+
+// Function to redraw all pavement polygons based on their order in the array
+function redrawPavementPolygons() {
+    pavementPolygonsLayer.clearLayers(); // Clear the layer group
+    pavementPolygons.forEach(polygon => {
+        pavementPolygonsLayer.addLayer(polygon); // Add polygons back in order
+    });
+}
+
+// Event listener for moving the selected polygon backward
+document.getElementById('movePolygonBackward').addEventListener('click', function () {
+    if (!selectedPavementPolygon) {
+        alert("Please select a polygon first.");
+        return;
+    }
+
+    const index = pavementPolygons.indexOf(selectedPavementPolygon);
+    if (index > 0) {
+        // Swap the selected polygon with the one before it
+        [pavementPolygons[index - 1], pavementPolygons[index]] = [pavementPolygons[index], pavementPolygons[index - 1]];
+        redrawPavementPolygons(); // Redraw polygons
+    } else {
+        alert("The polygon is already at the back.");
+    }
+});
+
+// Event listener for moving the selected polygon forward
+document.getElementById('movePolygonForward').addEventListener('click', function () {
+    if (!selectedPavementPolygon) {
+        alert("Please select a polygon first.");
+        return;
+    }
+
+    const index = pavementPolygons.indexOf(selectedPavementPolygon);
+    if (index < pavementPolygons.length - 1) {
+        // Swap the selected polygon with the one after it
+        [pavementPolygons[index], pavementPolygons[index + 1]] = [pavementPolygons[index + 1], pavementPolygons[index]];
+        redrawPavementPolygons(); // Redraw polygons
+    } else {
+        alert("The polygon is already at the front.");
+    }
+});
+
+// Function to rotate a polygon around its centroid
+function rotatePolygon(polygon, angleDifference) {
+    const latlngs = polygon.getLatLngs()[0] || polygon.getLatLngs();
+
+    // Ensure the polygon is a closed ring
+    const coordinates = latlngs.map(ll => [ll.lng, ll.lat]);
+    if (coordinates.length > 0) {
+        const firstCoord = coordinates[0];
+        const lastCoord = coordinates[coordinates.length - 1];
+        if (firstCoord[0] !== lastCoord[0] || firstCoord[1] !== lastCoord[1]) {
+            coordinates.push(firstCoord); // Close the ring
+        }
+    }
+
+    // Create a GeoJSON polygon
+    const geojsonPolygon = turf.polygon([coordinates]);
+
+    // Rotate the polygon using Turf.js's transformRotate
+    const rotatedPolygon = turf.transformRotate(geojsonPolygon, angleDifference);
+
+    // Update the polygon's coordinates
+    const rotatedCoords = rotatedPolygon.geometry.coordinates[0];
+    polygon.setLatLngs([rotatedCoords.map(([lng, lat]) => L.latLng(lat, lng))]);
+}
+
+// Initialize the polygon angle selector
+(function () {
+    const svg = document.getElementById('polygonAngleSVG');
+    const angleLine = document.getElementById('polygonAngleLine');
+    const angleValue = document.getElementById('polygonAngleValue');
+    let dragging = false;
+    let currentAngle = 0; // Track the current angle of the polygon
+
+    function getMousePosition(evt) {
+        const rect = svg.getBoundingClientRect();
+        return { x: evt.clientX - rect.left, y: evt.clientY - rect.top };
+    }
+
+    function updatePolygonAngle(evt) {
+        const pos = getMousePosition(evt);
+        const centerX = 50, centerY = 50;
+        const dx = pos.x - centerX, dy = centerY - pos.y;
+        let newAngle = Math.atan2(dx, dy) * (180 / Math.PI);
+        if (newAngle < 0) newAngle += 360;
+
+        const angleDifference = newAngle - currentAngle;
+        currentAngle = newAngle;
+
+        const rad = newAngle * Math.PI / 180, r = 40;
+        angleLine.setAttribute('x2', centerX + r * Math.sin(rad));
+        angleLine.setAttribute('y2', centerY - r * Math.cos(rad));
+        angleValue.textContent = Math.round(newAngle) + '°';
+
+        if (selectedPavementPolygon) {
+            rotatePolygon(selectedPavementPolygon, angleDifference);
+        }
+    }
+
+    svg.addEventListener('mousedown', function (e) { dragging = true; updatePolygonAngle(e); });
+    window.addEventListener('mousemove', function (e) { if (dragging) updatePolygonAngle(e); });
+    window.addEventListener('mouseup', function () { dragging = false; });
+})();
+
+// Add functionality for the 180° flip button
+document.getElementById('polygonAngle180Button').addEventListener('click', function () {
+    const angleValue = document.getElementById('polygonAngleValue');
+    let currentAngle = parseInt(angleValue.textContent);
+    const newAngle = (currentAngle + 180) % 360;
+    const angleDifference = newAngle - currentAngle;
+    angleValue.textContent = newAngle + '°';
+
+    // Update the angle selector line
+    const rad = newAngle * Math.PI / 180;
+    const centerX = 50, centerY = 50, r = 40;
+    document.getElementById('polygonAngleLine').setAttribute('x2', centerX + r * Math.sin(rad));
+    document.getElementById('polygonAngleLine').setAttribute('y2', centerY - r * Math.cos(rad));
+
+    if (selectedPavementPolygon) {
+        rotatePolygon(selectedPavementPolygon, angleDifference);
+    }
+});
+
+
+let selectedCalloutLine = null; // Track the selected callout line
+
+// Function to deselect all callout lines
+function deselectAllCalloutLines() {
+    if (selectedCalloutLine) {
+        selectedCalloutLine.disableEdit();
+        selectedCalloutLine = null;
+    }
+}
+
+
 

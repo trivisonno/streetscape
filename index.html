@@ -49,8 +49,9 @@
             <button id="tabPavementColor" class="tab">Pavements</button>
             <button id="tabProjectSettings" class="tab">Project Settings</button>
         </div>
-        <!-- Pavement Markings Tab --><div id="selectedIconInfo" style="margin: 10px 0; font-weight: bold;">Selected Icon: None</div>
-        <div id="pavementTab" class="tabContent">Ground Control
+        <div id="pavementTab" class="tabContent"><!-- Pavement Markings Tab -->
+        <div id="selectedIconInfo" style="margin: 10px 0; font-weight: bold;">Selected Icon: None</div>
+        Ground Marking
             <div id="iconOptions">
                 <button class="iconButton" data-icon="img/bikelane.png">
                     <img src="img/bikelane.png" alt="Bike Lane" style="width: 30px;">
@@ -62,7 +63,7 @@
                     <img src="img/sharrow.png" alt="Sharrow" style="width: 30px;">
                 </button>
                 <button class="iconButton" data-icon="img/sharrow-green.png">
-                    <img src="img/sharrow-green.png" alt="Sharrow" style="width: 30px;">
+                    <img src="img/sharrow-green.png" alt="Sharrow green" style="width: 30px;">
                 </button>
                 <button class="iconButton" data-icon="img/bike-symbol.png">
                     <img src="img/bike-symbol.png" alt="Bike symbol" style="width: 30px;">
@@ -110,13 +111,13 @@
                     <img src="img/uturn-left.png" alt="U-turn and left turn" style="width: 30px;">
                 </button>
                 <button class="iconButton" data-icon="img/bike-racks.png">
-                    <img src="img/bike-racks.png" alt="U-turn and left turn" style="width: 42px;">
+                    <img src="img/bike-racks.png" alt="Bike corral" style="width: 42px;">
                 </button>
                 <button class="iconButton" data-icon="img/football.png">
                     <img src="img/football.png" alt="Protected intersection curb" style="width: 30px;">
                 </button>
-                <button class="iconButton" data-icon="img/vertical-delineator.svg">
-                    <img src="img/vertical-delineator.svg" alt="Vertical delineator" style="width: 30px;">
+                <button class="iconButton" data-icon="img/vertical-delineator_1010.svg?w=10&h=10">
+                    <img src="img/vertical-delineator_1010.svg?w=10&h=10" alt="Vertical delineator" style="width: 30px;">
                 </button>
                 <button class="iconButton" data-icon="img/left-small.png">
                     <img src="img/left-small.png" alt="Left turn (small)" style="width: 30px;">
@@ -150,6 +151,12 @@
                 </button>
                 <button class="iconButton sign" data-icon="img/MUTCD_R7-9a.svg.png">
                     <img src="img/MUTCD_R7-9a.svg.png" alt="R7-9a No parking, bike lane" style="width: 30px;">
+                </button>
+                <button class="iconButton sign" data-icon="img/MUTCD_R7-1R.svg.png">
+                    <img src="img/MUTCD_R7-1R.svg.png" alt="R7-1R No parking to the right" style="width: 30px;">
+                </button>
+                <button class="iconButton sign" data-icon="img/MUTCD_R7-1L.svg.png">
+                    <img src="img/MUTCD_R7-1L.svg.png" alt="R7-1L No parking to the left" style="width: 30px;">
                 </button>
                 <button class="iconButton sign" data-icon="img/MUTCD_D4-1L.svg.png">
                     <img src="img/MUTCD_D4-1L.svg.png" alt="D4-1L Parking area left" style="width: 30px;">
@@ -238,7 +245,7 @@ Cross traffic does not stop " style="width: 30px;">
                 <label for="pavementStroke">Stroke Color:</label>
                 <input type="color" id="pavementStroke" value="#222222"><br>
                 
-                <label for="pavementFill">Pavement Color:</label>
+                <label for="pavementFill">Polygon Color:</label>
                 <input type="color" id="pavementFill" value="#222222" list="pavementFillColors">
                 <datalist id="pavementFillColors">
                     <option value="#000000">Black</option>
@@ -249,22 +256,32 @@ Cross traffic does not stop " style="width: 30px;">
                     <option value="#FFFF00">Yellow</option>
                     <option value="#0000FF">Blue</option>
                 </datalist><br>
-                <label for="pavementFillOpacity">Pavement Opacity:</label>
+                <label for="pavementFillOpacity">Polygon Opacity:</label>
                 <input type="range" id="pavementFillOpacity" min="0" max="1" step="0.1" value="1">
                 <span id="pavementFillOpacityValue">1</span>
             </div>
             <div id="pavementArea" style="margin-top: 10px; font-weight: bold;"></div>
-            <button id="drawPavementPolygon">New Pavement Shape</button>
-            <button id="editPavementPolygon">Edit Selected Pavement Polygon</button>
-            <button id="removePavementPolygon">Remove Selected Pavement Polygon</button>
+            <button id="drawPavementPolygon">New Polygon Shape</button>
+            <button id="editPavementPolygon">Edit/Drag Selected Polygon</button>
+            <button id="movePolygonBackward">Move Polygon Backward</button>
+            <button id="movePolygonForward">Move Polygon Forward</button>
+            <button id="removePavementPolygon">Remove Selected Polygon</button>
+            <center><div id="polygonAngleSelector">
+                <svg id="polygonAngleSVG" width="100" height="100" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="40" stroke="#ccc" stroke-width="2" fill="none" />
+                    <line id="polygonAngleLine" x1="50" y1="50" x2="50" y2="10" stroke="blue" stroke-width="2" />
+                </svg>
+                <div id="polygonAngleValue">0°</div>
+                <button id="polygonAngle180Button">Flip 180°</button>
+            </div></center>
         </div>
         <!-- Project Settings Tab -->
         <div id="projectSettingsTab" class="tabContent" style="display: none;">
             <div style="display: none;">
                 <label for="initialLat">Load Latitude:</label>
-                <input type="text" id="initialLat" value="41.4993"><br>
+                <input type="text" id="initialLat" value="41.48577"><br>
                 <label for="initialLng">Load Longitude:</label>
-                <input type="text" id="initialLng" value="-81.6944"><br>
+                <input type="text" id="initialLng" value="-81.7072"><br>
                 <label for="initialZoom">Load Zoom:</label>
                 <input type="number" id="initialZoom" value="21" min="1"><br>
             </div>
@@ -302,6 +319,7 @@ Cross traffic does not stop " style="width: 30px;">
     <script src="js/leaflet.geometryutil.js"></script>
     <script src="js/leaflet-arrowheads.js"></script>
     <script src="js/scripts.js"></script>
+    <script src="https://npmcdn.com/leaflet.path.drag/src/Path.Drag.js"></script>
 </body>
 
 </html>

@@ -721,6 +721,63 @@ document.getElementById('editPavementPolygon').addEventListener('click', functio
     if (selectedPavementPolygon) { selectedPavementPolygon.enableEdit(); }
 });
 
+// Duplicate the selected pavement polygon: create a copy offset by a fixed
+// on-screen distance (so it's visibly distinct at any zoom level), stack it
+// directly above the original within pavementPane, select it, and drop the
+// user straight into drag/edit mode so they can reposition it immediately.
+document.getElementById('duplicatePavementPolygon').addEventListener('click', function () {
+    if (!selectedPavementPolygon) {
+        alert("Please select a polygon first.");
+        return;
+    }
+    const source = selectedPavementPolygon;
+    const sourceLatLngs = source.getLatLngs()[0] || source.getLatLngs();
+
+    const OFFSET_PX = 15; // constant screen-space offset, independent of zoom
+    const offsetLatLngs = sourceLatLngs.map(latlng => {
+        const point = map.latLngToContainerPoint(latlng);
+        return map.containerPointToLatLng(L.point(point.x + OFFSET_PX, point.y + OFFSET_PX));
+    });
+
+    const duplicate = L.polygon(offsetLatLngs, {
+        color: source.myStyle.color,
+        weight: source.myStyle.weight,
+        fillColor: source.myStyle.fillColor,
+        fillOpacity: source.myStyle.fillOpacity,
+        pane: 'pavementPane'
+    });
+    duplicate.myStyle = { ...source.myStyle };
+
+    // Insert the duplicate immediately after the source in the ordering
+    // array, then redraw so it re-renders just above the original within
+    // pavementPane (later entries are (re-)added to the DOM later and so
+    // stack on top of earlier ones -- see redrawPavementPolygons()).
+    const sourceIndex = pavementPolygons.indexOf(source);
+    pavementPolygons.splice(sourceIndex + 1, 0, duplicate);
+    redrawPavementPolygons();
+
+    duplicate.on('click', function (ev) {
+        if (document.getElementById('pavementColorTab').style.display !== "none") {
+            L.DomEvent.stopPropagation(ev);
+        }
+        deselectAllPavementPolygons();
+        selectedPavementPolygon = duplicate;
+        duplicate.setStyle({ dashArray: "20,20", weight: 5, color: 'red' });
+        updatePavementAreaDisplay(duplicate);
+    });
+
+    deselectAllPavementPolygons();
+    selectedPavementPolygon = duplicate;
+    duplicate.setStyle({ dashArray: "20,20", weight: 5, color: 'red' });
+    updatePavementAreaDisplay(duplicate);
+
+    // Ensure the duplicate is interactive even if pavement editing was
+    // toggled off, then immediately enter drag/edit mode on it.
+    duplicate.options.interactive = true;
+    if (duplicate._path) { duplicate._path.style.pointerEvents = "auto"; }
+    duplicate.enableEdit();
+});
+
 document.getElementById('pavementFill').addEventListener('change', function () {
     const newFillColor = this.value;
     document.getElementById('pavementFill').textContent = this.value;

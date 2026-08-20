@@ -1038,7 +1038,13 @@
             const strokeColor = document.getElementById('pavementStroke').value;
             const fillColor = document.getElementById('pavementFill').value;
             const fillOpacity = parseFloat(document.getElementById('pavementFillOpacity').value);
-            var polygon = map.editTools.startPolygon();
+            // `pane` must be set at layer creation time -- Leaflet's setStyle() only
+            // updates style attributes and cannot move a layer's DOM element into a
+            // different pane after the fact. Passing it here (rather than via
+            // setStyle below) ensures the polygon actually renders in pavementPane,
+            // underneath the lane lines/markers/signs, instead of Leaflet's default
+            // overlayPane on top of them.
+            var polygon = map.editTools.startPolygon(null, { pane: 'pavementPane' });
             polygon.on('editable:drawing:end', function () {
                 const latlngs = polygon.getLatLngs()[0] || polygon.getLatLngs();
                 if (!latlngs || latlngs.length < 3) { console.error("Invalid polygon"); return; }
@@ -1047,8 +1053,7 @@
                     color: strokeColor,
                     weight: 0,
                     fillColor: fillColor,
-                    fillOpacity: fillOpacity,
-                    pane: 'pavementPane'
+                    fillOpacity: fillOpacity
                 });
                 polygon.myStyle = {
                     color: strokeColor,

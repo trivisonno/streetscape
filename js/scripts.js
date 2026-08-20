@@ -1,4 +1,16 @@
 // --- Global Variables ---
+
+// Builds a short, human-readable local timestamp (e.g. "2026-08-20_1432")
+// for use in saved filenames, so repeated saves of the same project name
+// don't collide and get suffixed by the browser as "(1)", "(2)", etc.
+function getFileTimestamp() {
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const date = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    const time = `${pad(now.getHours())}${pad(now.getMinutes())}`;
+    return `${date}_${time}`;
+}
+
 let currentIconUrl = null;
 let selectedMarker = null;  // for pavement markings
 const markers = [];
@@ -840,7 +852,12 @@ function updatePavementAreaDisplay(polygon) {
 }
 
 // --- Save/Load GeoJSON with coordinates rounded to 6 decimals ---
-document.getElementById('saveGeoJson').addEventListener('click', function () {
+
+// Collects the current map state (markers, lane lines, pavement polygons,
+// labels, callout lines, and project settings) into a GeoJSON
+// FeatureCollection. Shared by the "Save Design" button and the undo/redo
+// history snapshotting below, so both stay in sync with one implementation.
+function buildProjectGeoJson() {
     const features = [];
     // This Set holds geometry signatures we've already processed.
     const geometrySignatures = new Set();
@@ -1002,14 +1019,19 @@ document.getElementById('saveGeoJson').addEventListener('click', function () {
         }))
     };
 
+    return { type: "FeatureCollection", features: features, project: project };
+}
+
+document.getElementById('saveGeoJson').addEventListener('click', function () {
+    const geojson = buildProjectGeoJson();
+
     // Get the project name from the input or label.
     const projectName = document.getElementById('projectNameInput').value || document.getElementById('projectNameLabel').textContent;
-    // Replace any character that isn't a letter, number, dash, or underscore with an underscore.
-    const safeProjectName = projectName.replace(/[^a-zA-Z0-9-_]/g, '_') + '.geojson';
-    // Append the .geojson extension.
+    // Replace any character that isn't a letter, number, dash, or underscore with an underscore,
+    // and append a short timestamp so repeated saves get distinct filenames instead of the
+    // browser suffixing duplicates as "(1)", "(2)", etc.
+    const safeProjectName = projectName.replace(/[^a-zA-Z0-9-_]/g, '_') + '_' + getFileTimestamp() + '.geojson';
 
-
-    const geojson = { type: "FeatureCollection", features: features, project: project };
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(geojson));
     const a = document.createElement('a');
     a.setAttribute("href", dataStr);
@@ -2266,6 +2288,147 @@ function deselectAllCalloutLines() {
         selectedCalloutLine = null;
     }
 }
+
+// --- Undo / Redo ---
+//
+// The app's state is spread across several independent arrays/layer groups
+// (markers, laneLines, pavementPolygons, dimensionsLayer/labelFeatures) that
+// get mutated from ~30 different places (drawing, dragging, deleting,
+// restyling, duplicating...). Rather than instrument every call site, undo
+// history is captured generically: a MutationObserver watches the map panes
+// that hold our features (not the tile/UI panes) for DOM changes, and once
+// activity settles we take a full-state snapshot using the same
+// buildProjectGeoJson()/loadFeaturesFromGeoJson() round trip already used by
+// Save/Load. Undo/redo then just replays snapshots from a history stack.
+const MAX_HISTORY = 50;
+let historyStack = [];  // JSON-stringified buildProjectGeoJson() snapshots
+let historyIndex = -1;  // index of the currently-displayed snapshot
+let isRestoringHistory = false; // guards against snapshotting our own restores
+let historyDebounceTimer = null;
+
+function updateUndoRedoButtons() {
+    const undoBtn = document.getElementById('undoButton');
+    const redoBtn = document.getElementById('redoButton');
+    if (undoBtn) { undoBtn.disabled = historyIndex <= 0; }
+    if (redoBtn) { redoBtn.disabled = historyIndex >= historyStack.length - 1; }
+}
+
+function commitHistorySnapshot() {
+    if (isRestoringHistory) return;
+    const snapshot = JSON.stringify(buildProjectGeoJson());
+
+    // Nothing actually changed since the last snapshot (e.g. a click that
+    // selected something without moving it) -- skip it.
+    if (historyIndex >= 0 && historyStack[historyIndex] === snapshot) return;
+
+    // A new change discards any redo branch that was sitting ahead of it.
+    historyStack = historyStack.slice(0, historyIndex + 1);
+    historyStack.push(snapshot);
+    if (historyStack.length > MAX_HISTORY) {
+        historyStack.shift();
+    }
+    historyIndex = historyStack.length - 1;
+
+    updateUndoRedoButtons();
+}
+
+function scheduleHistorySnapshot() {
+    if (isRestoringHistory) return;
+    clearTimeout(historyDebounceTimer);
+    historyDebounceTimer = setTimeout(commitHistorySnapshot, 500);
+}
+
+// Wipes all design features from the map so a history snapshot can be
+// loaded in cleanly. Unlike the "Clear Map" button, this also removes text
+// labels/callout lines and properly empties each layer group (rather than
+// just detaching layers from the map), since it runs far more often and
+// stale group references would otherwise accumulate across undo/redo.
+function clearAllMapFeatures() {
+    deselectAllFeatures();
+    map.closePopup();
+    disableKeyShortcuts = false;
+
+    markersLayer.clearLayers();
+    signMarkersLayer.clearLayers();
+    markers.length = 0;
+
+    laneLinesLayer.clearLayers();
+    laneLines.length = 0;
+
+    pavementPolygonsLayer.clearLayers();
+    pavementPolygons.length = 0;
+
+    dimensionsLayer.clearLayers();
+    labelFeatures.length = 0;
+}
+
+function restoreHistorySnapshot(index) {
+    if (index < 0 || index >= historyStack.length) return;
+
+    isRestoringHistory = true;
+    clearTimeout(historyDebounceTimer);
+
+    // loadFeaturesFromGeoJson() re-centers the map on the project's saved
+    // "initial view" whenever it's present, which is right for an explicit
+    // Load but would otherwise make every undo/redo jerk the viewport back
+    // to that view. Preserve whatever the user is currently looking at.
+    const currentCenter = map.getCenter();
+    const currentZoom = map.getZoom();
+
+    clearAllMapFeatures();
+    loadFeaturesFromGeoJson(JSON.parse(historyStack[index]));
+    map.setView(currentCenter, currentZoom, { animate: false });
+
+    historyIndex = index;
+    updateUndoRedoButtons();
+
+    // Let the DOM settle from the restore (and let the MutationObserver's
+    // batched callback for it fire and get ignored) before resuming normal
+    // automatic snapshotting.
+    setTimeout(() => { isRestoringHistory = false; }, 600);
+}
+
+function undoHistory() {
+    if (historyIndex > 0) restoreHistorySnapshot(historyIndex - 1);
+}
+
+function redoHistory() {
+    if (historyIndex < historyStack.length - 1) restoreHistorySnapshot(historyIndex + 1);
+}
+
+document.getElementById('undoButton').addEventListener('click', undoHistory);
+document.getElementById('redoButton').addEventListener('click', redoHistory);
+
+document.addEventListener('keydown', function (e) {
+    if (disableKeyShortcuts) return;
+    const key = e.key.toLowerCase();
+    if (!(e.ctrlKey || e.metaKey) || (key !== 'z' && key !== 'y')) return;
+
+    if (key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        undoHistory();
+    } else if ((key === 'z' && e.shiftKey) || key === 'y') {
+        e.preventDefault();
+        redoHistory();
+    }
+});
+
+// Watch the panes that hold our editable features (not the tile pane, map
+// controls, etc.) for any DOM change -- a layer added/removed, a path's "d"
+// or style redrawn, a marker's transform updated by a drag -- and schedule
+// a debounced snapshot once things settle.
+const historyObserver = new MutationObserver(scheduleHistorySnapshot);
+['overlayPane', 'linesPane', 'pavementPane'].forEach(paneName => {
+    const pane = map.getPane(paneName);
+    if (pane) {
+        historyObserver.observe(pane, { subtree: true, childList: true, attributes: true });
+    }
+});
+
+// Seed the initial history entry with whatever state exists once startup
+// (including any ?file= project load) has settled.
+scheduleHistorySnapshot();
+updateUndoRedoButtons();
 
 
 

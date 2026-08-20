@@ -292,7 +292,12 @@ Cross traffic does not stop " style="width: 30px;">
             <button id="deleteMarkers">Delete All Markers</button>
             <button id="deleteLaneLines">Delete All Lane Lines</button>
             <button id="clearMap">Clear Map</button>
-        </div><button id="loadGeoJsonBtn">&#128194; Load Design .geojson file</button>
+        </div>
+        <div style="display: flex; gap: 5px;">
+            <button id="undoButton" style="flex: 1;" disabled title="Undo (Ctrl+Z)">&#8630; Undo</button>
+            <button id="redoButton" style="flex: 1;" disabled title="Redo (Ctrl+Y)">&#8631; Redo</button>
+        </div>
+        <button id="loadGeoJsonBtn">&#128194; Load Design .geojson file</button>
         <button id="saveGeoJson">&#128190; Save Design .geojson file</button>
         <input type="file" id="loadGeoJson" style="display: none;">
     </div>

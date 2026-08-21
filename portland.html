@@ -380,7 +380,10 @@
                     <span id="pavementPatternLineWidthValue">0.50 ft</span><br>
                     <label for="pavementPatternLineSpacing">Line Spacing:</label>
                     <input type="range" id="pavementPatternLineSpacing" min="0.1" max="10" step="0.1" value="2">
-                    <span id="pavementPatternLineSpacingValue">2.00 ft</span>
+                    <span id="pavementPatternLineSpacingValue">2.00 ft</span><br>
+                    <label for="pavementPatternOffset">Pattern Offset:</label>
+                    <input type="range" id="pavementPatternOffset" min="0" max="10" step="0.1" value="0">
+                    <span id="pavementPatternOffsetValue">0.00 ft</span>
                 </div>
             </div>
             <div id="pavementArea" style="margin-top: 10px; font-weight: bold;"></div>
@@ -1176,9 +1179,9 @@
 
         // Rebuilds/updates the <pattern> element backing a pattern-filled
         // polygon's current style (pattern type, rotation, line
-        // width/spacing, color) and the current zoom. Safe to call
-        // repeatedly -- it reuses the polygon's existing <pattern> element
-        // if there is one instead of recreating it.
+        // width/spacing/offset, color) and the current zoom/position. Safe
+        // to call repeatedly -- it reuses the polygon's existing <pattern>
+        // element if there is one instead of recreating it.
         function updatePavementPattern(polygon) {
             const style = polygon.myStyle;
             if (!style || style.fillMode !== 'pattern') return;
@@ -1193,6 +1196,35 @@
             const rotation = style.patternRotation || 0;
             const color = style.fillColor || '#000000';
 
+            // <pattern patternUnits="userSpaceOnUse"> with no x/y tiles
+            // starting from (0,0) of whatever local pixel space the
+            // referencing path happens to be drawn in -- and Leaflet
+            // silently re-bases that pixel space (its "pane origin") on
+            // every zoom change to keep coordinates from overflowing far
+            // from the map center. The polygon's own path gets redrawn
+            // relative to the new origin, but the pattern's phase has no
+            // memory of the old one, so the stripes visibly jump on each
+            // zoom. Fix: anchor the pattern's phase to a fixed point on the
+            // polygon itself (its first vertex) instead, recomputed fresh
+            // on every redraw via latLngToLayerPoint() -- the same pixel
+            // space Leaflet uses for the polygon's own path "d" attribute
+            // -- so the stripes stay visually locked to the polygon (and
+            // to the ground) regardless of zoom/pan.
+            const latlngs = polygon.getLatLngs()[0] || polygon.getLatLngs();
+            const anchorPoint = map.latLngToLayerPoint(latlngs[0]);
+
+            // Project the anchor onto the pattern's own pre-rotation local
+            // x-axis (the axis spacing/offset run along) by undoing the
+            // rotation applied below, so the anchor lines up correctly
+            // regardless of the pattern's current rotation.
+            const rad = -rotation * Math.PI / 180;
+            const anchorLocalX = anchorPoint.x * Math.cos(rad) - anchorPoint.y * Math.sin(rad);
+
+            const offsetPx = feetToPavementPatternPixels(style.patternOffsetFt || 0);
+            // Wrap into a single tile's width -- this can land anywhere in
+            // [0, spacing), including right at an edge.
+            const phaseX = (((anchorLocalX + offsetPx) % spacing) + spacing) % spacing;
+
             const id = getPavementPatternId(polygon);
             let patternEl = document.getElementById(id);
             if (!patternEl) {
@@ -1205,15 +1237,15 @@
             patternEl.setAttribute('height', spacing);
             patternEl.setAttribute('patternTransform', `rotate(${rotation})`);
 
-            // The stripe sits at the tile's horizontal center (not its edge,
-            // x=0) so its stroke-width padding stays fully inside the tile's
-            // [0, spacing] box -- <pattern> content is clipped to that box
-            // by default, so a line drawn at the edge would have exactly
-            // half its stroke cut off by the neighboring tile boundary,
-            // rendering at half the intended width. The rotation control
-            // provides the orientation (parallel to a crosswalk's travel
-            // direction, etc).
-            patternEl.innerHTML = `<line x1="${spacing / 2}" y1="0" x2="${spacing / 2}" y2="${spacing}" stroke="${color}" stroke-width="${strokeWidth}" />`;
+            // <pattern> content is clipped to its own [0, spacing) tile box
+            // by default, so a stripe positioned near a tile edge (which
+            // phaseX can land on, depending on the anchor/offset) would
+            // have part of its stroke-width padding cut off. Drawing the
+            // same stripe at phaseX and at one tile-width to either side
+            // guarantees a full, unclipped stripe regardless of where
+            // phaseX falls within the tile.
+            const stripeAt = x => `<line x1="${x}" y1="0" x2="${x}" y2="${spacing}" stroke="${color}" stroke-width="${strokeWidth}" />`;
+            patternEl.innerHTML = stripeAt(phaseX - spacing) + stripeAt(phaseX) + stripeAt(phaseX + spacing);
         }
 
         function removePavementPattern(polygon) {
@@ -1236,9 +1268,27 @@
             }
         }
 
-        // Pattern tiles are sized in on-screen pixels, so refresh every
-        // pattern-filled polygon's tile size whenever the zoom level changes.
-        map.on('zoomend', function () {
+        // The pattern's anchor point (see updatePavementPattern()) is the
+        // polygon's first vertex, so moving or reshaping the polygon needs
+        // to re-anchor the pattern too -- otherwise it stays visually "in
+        // place" while the polygon moves over it until the next zoom
+        // change happens to trigger a refresh. Call this once per polygon
+        // right after it's created.
+        function attachPatternDragRefresh(polygon) {
+            polygon.on('editable:vertex:dragend editable:dragend', function () {
+                if (polygon.myStyle && polygon.myStyle.fillMode === 'pattern') {
+                    updatePavementPattern(polygon);
+                }
+            });
+        }
+
+        // Pattern tiles are sized/anchored in on-screen pixels, so refresh
+        // every pattern-filled polygon whenever the zoom level changes (tile
+        // size) or the map's pane origin gets reset (viewreset -- can also
+        // happen from panning far enough, not just zooming; this is what
+        // keeps the pattern's anchor point, see updatePavementPattern(), in
+        // sync with the newly-rebased pixel space Leaflet just switched to).
+        map.on('zoomend viewreset', function () {
             pavementPolygons.forEach(polygon => {
                 if (polygon.myStyle && polygon.myStyle.fillMode === 'pattern') {
                     updatePavementPattern(polygon);
@@ -1271,6 +1321,10 @@
             const spacingFt = style.patternLineSpacingFt || defaults.spacingFt;
             document.getElementById('pavementPatternLineSpacing').value = spacingFt;
             document.getElementById('pavementPatternLineSpacingValue').textContent = spacingFt.toFixed(2) + " ft";
+
+            const offsetFt = style.patternOffsetFt || 0;
+            document.getElementById('pavementPatternOffset').value = offsetFt;
+            document.getElementById('pavementPatternOffsetValue').textContent = offsetFt.toFixed(2) + " ft";
         }
 
         // --- Pavement Color (Polygon) Section ---
@@ -1283,6 +1337,7 @@
             const patternRotation = parseInt(document.getElementById('pavementPatternRotation').value, 10) || 0;
             const patternLineWidthFt = parseFloat(document.getElementById('pavementPatternLineWidth').value) || 0.5;
             const patternLineSpacingFt = parseFloat(document.getElementById('pavementPatternLineSpacing').value) || 2;
+            const patternOffsetFt = parseFloat(document.getElementById('pavementPatternOffset').value) || 0;
             // `pane` must be set at layer creation time -- Leaflet's setStyle() only
             // updates style attributes and cannot move a layer's DOM element into a
             // different pane after the fact. Passing it here (rather than via
@@ -1308,9 +1363,11 @@
                     patternRotation: patternRotation,
                     patternLineWidthFt: patternLineWidthFt,
                     patternLineSpacingFt: patternLineSpacingFt,
+                    patternOffsetFt: patternOffsetFt,
                     pane: 'pavementPane'
                 };
                 applyPavementFill(polygon);
+                attachPatternDragRefresh(polygon);
                 pavementPolygonsLayer.addLayer(polygon);
                 pavementPolygons.push(polygon);
                 polygon.off('editable:drawing:commit editable:drawing:end');
@@ -1362,6 +1419,7 @@
             // <pattern> element rather than reusing the source's.
             duplicate.myStyle = { ...source.myStyle };
             applyPavementFill(duplicate);
+            attachPatternDragRefresh(duplicate);
 
             // Adding it after the source in both the array and the DOM (via
             // addLayer, which appends) stacks it above the original within
@@ -1420,14 +1478,16 @@
             const isPattern = value !== 'solid';
             document.getElementById('pavementPatternControls').style.display = isPattern ? 'block' : 'none';
 
-            // Switching pattern type resets Line Width/Spacing to that
-            // pattern's defaults, both in the controls and, if selected, on
-            // the polygon itself.
+            // Switching pattern type resets Line Width/Spacing/Offset to
+            // that pattern's defaults, both in the controls and, if
+            // selected, on the polygon itself.
             const defaults = PAVEMENT_PATTERN_DEFAULTS.stripes;
             document.getElementById('pavementPatternLineWidth').value = defaults.widthFt;
             document.getElementById('pavementPatternLineWidthValue').textContent = defaults.widthFt.toFixed(2) + " ft";
             document.getElementById('pavementPatternLineSpacing').value = defaults.spacingFt;
             document.getElementById('pavementPatternLineSpacingValue').textContent = defaults.spacingFt.toFixed(2) + " ft";
+            document.getElementById('pavementPatternOffset').value = 0;
+            document.getElementById('pavementPatternOffsetValue').textContent = "0.00 ft";
 
             if (selectedPavementPolygon) {
                 selectedPavementPolygon.myStyle.fillMode = isPattern ? 'pattern' : 'solid';
@@ -1435,6 +1495,7 @@
                 if (isPattern) {
                     selectedPavementPolygon.myStyle.patternLineWidthFt = defaults.widthFt;
                     selectedPavementPolygon.myStyle.patternLineSpacingFt = defaults.spacingFt;
+                    selectedPavementPolygon.myStyle.patternOffsetFt = 0;
                 }
                 applyPavementFill(selectedPavementPolygon);
             }
@@ -1463,6 +1524,15 @@
             document.getElementById('pavementPatternLineSpacingValue').textContent = spacingFt.toFixed(2) + " ft";
             if (selectedPavementPolygon) {
                 selectedPavementPolygon.myStyle.patternLineSpacingFt = spacingFt;
+                applyPavementFill(selectedPavementPolygon);
+            }
+        });
+
+        document.getElementById('pavementPatternOffset').addEventListener('input', function () {
+            const offsetFt = parseFloat(this.value) || 0;
+            document.getElementById('pavementPatternOffsetValue').textContent = offsetFt.toFixed(2) + " ft";
+            if (selectedPavementPolygon) {
+                selectedPavementPolygon.myStyle.patternOffsetFt = offsetFt;
                 applyPavementFill(selectedPavementPolygon);
             }
         });
@@ -1758,6 +1828,7 @@
                         }).addTo(pavementPolygonsLayer);
                         poly.myStyle = style;
                         applyPavementFill(poly); // Handles both solid fillColor and pattern fills (older saves without fillMode default to solid)
+                        attachPatternDragRefresh(poly);
                         pavementPolygons.push(poly);
                         poly.on('click', function (ev) {
                             L.DomEvent.stopPropagation(ev);

@@ -370,20 +370,43 @@
                 <select id="pavementFillType">
                     <option value="solid">Solid Color</option>
                     <option value="stripes">Stripes (Crosswalk)</option>
+                    <option value="custom-svg">Custom SVG</option>
                 </select>
                 <div id="pavementPatternControls" style="display: none;">
                     <label for="pavementPatternRotation">Pattern Rotation:</label>
                     <input type="range" id="pavementPatternRotation" min="0" max="359" step="1" value="0">
                     <span id="pavementPatternRotationValue">0°</span><br>
-                    <label for="pavementPatternLineWidth">Line Width:</label>
-                    <input type="range" id="pavementPatternLineWidth" min="0.05" max="3" step="0.05" value="0.5">
-                    <span id="pavementPatternLineWidthValue">0.50 ft</span><br>
-                    <label for="pavementPatternLineSpacing">Line Spacing:</label>
-                    <input type="range" id="pavementPatternLineSpacing" min="0.1" max="10" step="0.1" value="2">
-                    <span id="pavementPatternLineSpacingValue">2.00 ft</span><br>
-                    <label for="pavementPatternOffset">Pattern Offset:</label>
-                    <input type="range" id="pavementPatternOffset" min="0" max="10" step="0.1" value="0">
-                    <span id="pavementPatternOffsetValue">0.00 ft</span>
+
+                    <div id="pavementStripeControls">
+                        <label for="pavementPatternLineWidth">Line Width:</label>
+                        <input type="range" id="pavementPatternLineWidth" min="0.05" max="3" step="0.05" value="0.5">
+                        <span id="pavementPatternLineWidthValue">0.50 ft</span><br>
+                        <label for="pavementPatternLineSpacing">Line Spacing:</label>
+                        <input type="range" id="pavementPatternLineSpacing" min="0.1" max="10" step="0.1" value="2">
+                        <span id="pavementPatternLineSpacingValue">2.00 ft</span><br>
+                        <label for="pavementPatternOffset">Pattern Offset:</label>
+                        <input type="range" id="pavementPatternOffset" min="0" max="10" step="0.1" value="0">
+                        <span id="pavementPatternOffsetValue">0.00 ft</span>
+                    </div>
+
+                    <div id="pavementSvgControls" style="display: none;">
+                        <label for="pavementSvgFile">Upload SVG File:</label>
+                        <input type="file" id="pavementSvgFile" accept=".svg,image/svg+xml"><br>
+                        <label for="pavementSvgPaste">...or paste SVG code:</label><br>
+                        <textarea id="pavementSvgPaste" rows="4" style="width: 100%; box-sizing: border-box;" placeholder="&lt;svg viewBox=&quot;0 0 100 100&quot;&gt;...&lt;/svg&gt;"></textarea>
+                        <button id="pavementSvgApply">Use This SVG</button>
+                        <div id="pavementSvgStatus" style="font-size: 0.85em; margin: 4px 0;"></div>
+
+                        <label for="pavementSvgScale">Pattern Size:</label>
+                        <input type="range" id="pavementSvgScale" min="0.2" max="20" step="0.1" value="3">
+                        <span id="pavementSvgScaleValue">3.00 ft</span><br>
+                        <label for="pavementSvgOffsetX">Offset X:</label>
+                        <input type="range" id="pavementSvgOffsetX" min="0" max="20" step="0.1" value="0">
+                        <span id="pavementSvgOffsetXValue">0.00 ft</span><br>
+                        <label for="pavementSvgOffsetY">Offset Y:</label>
+                        <input type="range" id="pavementSvgOffsetY" min="0" max="20" step="0.1" value="0">
+                        <span id="pavementSvgOffsetYValue">0.00 ft</span>
+                    </div>
                 </div>
             </div>
             <div id="pavementArea" style="margin-top: 10px; font-weight: bold;"></div>
@@ -1177,15 +1200,64 @@
             return `pavement-pattern-${L.stamp(polygon)}`;
         }
 
+        function getOrCreatePavementPatternEl(polygon) {
+            const id = getPavementPatternId(polygon);
+            let patternEl = document.getElementById(id);
+            if (!patternEl) {
+                patternEl = document.createElementNS(SVG_NS, 'pattern');
+                patternEl.setAttribute('id', id);
+                patternEl.setAttribute('patternUnits', 'userSpaceOnUse');
+                pavementPatternDefs.appendChild(patternEl);
+            }
+            return patternEl;
+        }
+
+        // <pattern patternUnits="userSpaceOnUse"> with no x/y tiles starting
+        // from (0,0) of whatever local pixel space the referencing path
+        // happens to be drawn in -- and Leaflet silently re-bases that pixel
+        // space (its "pane origin") on every zoom change to keep
+        // coordinates from overflowing far from the map center. The
+        // polygon's own path gets redrawn relative to the new origin, but
+        // the pattern's phase has no memory of the old one, so a
+        // naively-drawn pattern visibly jumps on each zoom. Fix: anchor the
+        // pattern's phase to a fixed point on the polygon itself (its first
+        // vertex) instead, recomputed fresh on every redraw via
+        // latLngToLayerPoint() -- the same pixel space Leaflet uses for the
+        // polygon's own path "d" attribute -- so the fill stays visually
+        // locked to the polygon (and to the ground) regardless of zoom/pan.
+        // Returns the anchor projected onto the pattern's own pre-rotation
+        // local axes (undoing the rotation that patternTransform applies),
+        // since that's the frame spacing/offset controls operate in.
+        function getPavementPatternAnchor(polygon, rotationDeg) {
+            const latlngs = polygon.getLatLngs()[0] || polygon.getLatLngs();
+            const anchorPoint = map.latLngToLayerPoint(latlngs[0]);
+            const rad = -rotationDeg * Math.PI / 180;
+            return {
+                x: anchorPoint.x * Math.cos(rad) - anchorPoint.y * Math.sin(rad),
+                y: anchorPoint.x * Math.sin(rad) + anchorPoint.y * Math.cos(rad)
+            };
+        }
+
         // Rebuilds/updates the <pattern> element backing a pattern-filled
-        // polygon's current style (pattern type, rotation, line
-        // width/spacing/offset, color) and the current zoom/position. Safe
-        // to call repeatedly -- it reuses the polygon's existing <pattern>
-        // element if there is one instead of recreating it.
+        // polygon, dispatching to the renderer for its current pattern
+        // type. Safe to call repeatedly -- both renderers reuse the
+        // polygon's existing <pattern> element if there is one instead of
+        // recreating it.
         function updatePavementPattern(polygon) {
             const style = polygon.myStyle;
             if (!style || style.fillMode !== 'pattern') return;
+            if (style.pattern === 'custom-svg') {
+                updateCustomSvgPattern(polygon);
+            } else {
+                updateStripePattern(polygon);
+            }
+        }
 
+        // Renders the "Stripes (Crosswalk)" pattern: parallel lines at a
+        // given width/spacing/rotation/offset (all in decimal feet,
+        // converted to pixels at the current zoom).
+        function updateStripePattern(polygon) {
+            const style = polygon.myStyle;
             const defaults = PAVEMENT_PATTERN_DEFAULTS.stripes;
             const widthFt = style.patternLineWidthFt || defaults.widthFt;
             // Spacing is the tile's repeat distance (line-to-line), so it
@@ -1196,43 +1268,13 @@
             const rotation = style.patternRotation || 0;
             const color = style.fillColor || '#000000';
 
-            // <pattern patternUnits="userSpaceOnUse"> with no x/y tiles
-            // starting from (0,0) of whatever local pixel space the
-            // referencing path happens to be drawn in -- and Leaflet
-            // silently re-bases that pixel space (its "pane origin") on
-            // every zoom change to keep coordinates from overflowing far
-            // from the map center. The polygon's own path gets redrawn
-            // relative to the new origin, but the pattern's phase has no
-            // memory of the old one, so the stripes visibly jump on each
-            // zoom. Fix: anchor the pattern's phase to a fixed point on the
-            // polygon itself (its first vertex) instead, recomputed fresh
-            // on every redraw via latLngToLayerPoint() -- the same pixel
-            // space Leaflet uses for the polygon's own path "d" attribute
-            // -- so the stripes stay visually locked to the polygon (and
-            // to the ground) regardless of zoom/pan.
-            const latlngs = polygon.getLatLngs()[0] || polygon.getLatLngs();
-            const anchorPoint = map.latLngToLayerPoint(latlngs[0]);
-
-            // Project the anchor onto the pattern's own pre-rotation local
-            // x-axis (the axis spacing/offset run along) by undoing the
-            // rotation applied below, so the anchor lines up correctly
-            // regardless of the pattern's current rotation.
-            const rad = -rotation * Math.PI / 180;
-            const anchorLocalX = anchorPoint.x * Math.cos(rad) - anchorPoint.y * Math.sin(rad);
-
+            const anchor = getPavementPatternAnchor(polygon, rotation);
             const offsetPx = feetToPavementPatternPixels(style.patternOffsetFt || 0);
             // Wrap into a single tile's width -- this can land anywhere in
             // [0, spacing), including right at an edge.
-            const phaseX = (((anchorLocalX + offsetPx) % spacing) + spacing) % spacing;
+            const phaseX = (((anchor.x + offsetPx) % spacing) + spacing) % spacing;
 
-            const id = getPavementPatternId(polygon);
-            let patternEl = document.getElementById(id);
-            if (!patternEl) {
-                patternEl = document.createElementNS(SVG_NS, 'pattern');
-                patternEl.setAttribute('id', id);
-                patternEl.setAttribute('patternUnits', 'userSpaceOnUse');
-                pavementPatternDefs.appendChild(patternEl);
-            }
+            const patternEl = getOrCreatePavementPatternEl(polygon);
             patternEl.setAttribute('width', spacing);
             patternEl.setAttribute('height', spacing);
             patternEl.setAttribute('patternTransform', `rotate(${rotation})`);
@@ -1248,6 +1290,54 @@
             patternEl.innerHTML = stripeAt(phaseX - spacing) + stripeAt(phaseX) + stripeAt(phaseX + spacing);
         }
 
+        // Renders the "Custom SVG" pattern: the user's own (sanitized) SVG
+        // artwork, tiled at a given real-world size/rotation/offset. Unlike
+        // stripes, an arbitrary graphic has no translation symmetry along
+        // either axis, so both X and Y offsets matter (stripes only expose
+        // one, since sliding parallel lines along their own length has no
+        // visible effect).
+        function updateCustomSvgPattern(polygon) {
+            const style = polygon.myStyle;
+            if (!style.customSvgMarkup) { removePavementPattern(polygon); return; }
+
+            const sizeFt = style.customSvgSizeFt || 3;
+            const spacing = Math.max(4, feetToPavementPatternPixels(sizeFt));
+            const rotation = style.patternRotation || 0;
+
+            const anchor = getPavementPatternAnchor(polygon, rotation);
+            const offsetXPx = feetToPavementPatternPixels(style.customSvgOffsetXFt || 0);
+            const offsetYPx = feetToPavementPatternPixels(style.customSvgOffsetYFt || 0);
+            const phaseX = (((anchor.x + offsetXPx) % spacing) + spacing) % spacing;
+            const phaseY = (((anchor.y + offsetYPx) % spacing) + spacing) % spacing;
+
+            const patternEl = getOrCreatePavementPatternEl(polygon);
+            patternEl.setAttribute('width', spacing);
+            patternEl.setAttribute('height', spacing);
+            patternEl.setAttribute('patternTransform', `rotate(${rotation})`);
+
+            // Fit the artwork's own viewBox into a (spacing x spacing)
+            // square, centered on the tile position.
+            const vb = style.customSvgViewBox;
+            const [vbX, vbY, vbW, vbH] = vb ? vb.split(/\s+/).map(Number) : [0, 0, 100, 100];
+            const scale = spacing / Math.max(vbW, vbH || 1);
+
+            // <pattern> content is clipped to its own [0, spacing) x
+            // [0, spacing) tile box by default, so artwork near ANY edge
+            // (or corner) of the tile would be partly cut off. Unlike the
+            // 1D stripe pattern, an arbitrary 2D graphic needs the full 3x3
+            // grid of neighboring copies to guarantee nothing is clipped
+            // regardless of where the phase lands.
+            let inner = '';
+            for (let dx = -1; dx <= 1; dx++) {
+                for (let dy = -1; dy <= 1; dy++) {
+                    const tileX = phaseX + dx * spacing - (vbW * scale) / 2;
+                    const tileY = phaseY + dy * spacing - (vbH * scale) / 2;
+                    inner += `<g transform="translate(${tileX} ${tileY}) scale(${scale}) translate(${-vbX} ${-vbY})">${style.customSvgMarkup}</g>`;
+                }
+            }
+            patternEl.innerHTML = inner;
+        }
+
         function removePavementPattern(polygon) {
             const patternEl = document.getElementById(getPavementPatternId(polygon));
             if (patternEl) patternEl.remove();
@@ -1259,7 +1349,14 @@
         function applyPavementFill(polygon) {
             const style = polygon.myStyle;
             if (!style) return;
-            if (style.fillMode === 'pattern') {
+            if (style.fillMode === 'pattern' && style.pattern === 'custom-svg' && !style.customSvgMarkup) {
+                // Custom SVG selected but no artwork loaded yet (via the
+                // paste box/file upload) -- render as transparent rather
+                // than pointing fillColor at a <pattern> def that doesn't
+                // exist yet, which browsers fall back to solid black for.
+                removePavementPattern(polygon);
+                polygon.setStyle({ fillColor: 'none', fillOpacity: 0 });
+            } else if (style.fillMode === 'pattern') {
                 updatePavementPattern(polygon);
                 polygon.setStyle({ fillColor: `url(#${getPavementPatternId(polygon)})`, fillOpacity: style.fillOpacity });
             } else {
@@ -1304,10 +1401,13 @@
         function syncPavementFillControlsToPolygon(polygon) {
             const style = polygon.myStyle || {};
             const isPattern = style.fillMode === 'pattern';
+            const isCustomSvg = isPattern && style.pattern === 'custom-svg';
             const fillTypeValue = isPattern ? (style.pattern || 'stripes') : 'solid';
 
             document.getElementById('pavementFillType').value = fillTypeValue;
             document.getElementById('pavementPatternControls').style.display = isPattern ? 'block' : 'none';
+            document.getElementById('pavementStripeControls').style.display = isCustomSvg ? 'none' : 'block';
+            document.getElementById('pavementSvgControls').style.display = isCustomSvg ? 'block' : 'none';
 
             const rotation = style.patternRotation || 0;
             document.getElementById('pavementPatternRotation').value = rotation;
@@ -1325,7 +1425,101 @@
             const offsetFt = style.patternOffsetFt || 0;
             document.getElementById('pavementPatternOffset').value = offsetFt;
             document.getElementById('pavementPatternOffsetValue').textContent = offsetFt.toFixed(2) + " ft";
+
+            document.getElementById('pavementSvgPaste').value = style.customSvgMarkup || '';
+            document.getElementById('pavementSvgStatus').textContent = style.customSvgMarkup ? 'SVG loaded.' : '';
+            document.getElementById('pavementSvgStatus').style.color = '';
+
+            const svgSizeFt = style.customSvgSizeFt || 3;
+            document.getElementById('pavementSvgScale').value = svgSizeFt;
+            document.getElementById('pavementSvgScaleValue').textContent = svgSizeFt.toFixed(2) + " ft";
+
+            const svgOffsetXFt = style.customSvgOffsetXFt || 0;
+            document.getElementById('pavementSvgOffsetX').value = svgOffsetXFt;
+            document.getElementById('pavementSvgOffsetXValue').textContent = svgOffsetXFt.toFixed(2) + " ft";
+
+            const svgOffsetYFt = style.customSvgOffsetYFt || 0;
+            document.getElementById('pavementSvgOffsetY').value = svgOffsetYFt;
+            document.getElementById('pavementSvgOffsetYValue').textContent = svgOffsetYFt.toFixed(2) + " ft";
         }
+
+        // Parses and sanitizes a user-supplied SVG document string for safe
+        // use as pattern-fill content. This can come from an uploaded file
+        // or pasted text the user didn't necessarily author themselves, and
+        // SVG can carry <script> elements and "on*" event-handler
+        // attributes that execute arbitrary JS in the page -- both are
+        // stripped. Returns null if the text doesn't parse as SVG at all.
+        function sanitizeSvgMarkup(svgText) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(svgText, 'image/svg+xml');
+            const svgEl = doc.querySelector('svg');
+            if (!svgEl || doc.querySelector('parsererror')) return null;
+
+            svgEl.querySelectorAll('script').forEach(el => el.remove());
+            const walker = doc.createTreeWalker(svgEl, NodeFilter.SHOW_ELEMENT);
+            let node = walker.currentNode;
+            do {
+                if (node.tagName && node.tagName.toLowerCase() === 'foreignobject') {
+                    node.remove();
+                    continue;
+                }
+                if (node.attributes) {
+                    [...node.attributes].forEach(attr => {
+                        const name = attr.name.toLowerCase();
+                        if (name.startsWith('on') || (/^(href|xlink:href)$/.test(name) && /^\s*javascript:/i.test(attr.value))) {
+                            node.removeAttribute(attr.name);
+                        }
+                    });
+                }
+            } while (node = walker.nextNode());
+
+            const viewBoxAttr = svgEl.getAttribute('viewBox');
+            const width = parseFloat(svgEl.getAttribute('width'));
+            const height = parseFloat(svgEl.getAttribute('height'));
+            // Fall back to width/height (or a generic square) if there's no
+            // viewBox, so the artwork still has a defined aspect ratio to
+            // scale by.
+            const viewBox = viewBoxAttr || `0 0 ${width || 100} ${height || 100}`;
+
+            return { markup: svgEl.innerHTML, viewBox: viewBox };
+        }
+
+        // Parses whatever's currently in the SVG paste box (populated
+        // directly by a file upload, or typed/pasted by hand) and applies
+        // it to the selected polygon, or just validates it if nothing is
+        // selected yet -- mirroring how the other pattern controls double
+        // as "pending settings" that get picked up by the next New Polygon
+        // Shape.
+        function applyPavementSvgFromTextarea() {
+            const statusEl = document.getElementById('pavementSvgStatus');
+            const text = document.getElementById('pavementSvgPaste').value;
+            const parsed = sanitizeSvgMarkup(text);
+            if (!parsed) {
+                statusEl.textContent = 'Could not parse that as SVG.';
+                statusEl.style.color = '#c00';
+                return;
+            }
+            statusEl.textContent = 'SVG loaded.';
+            statusEl.style.color = '#080';
+            if (selectedPavementPolygon && selectedPavementPolygon.myStyle.pattern === 'custom-svg') {
+                selectedPavementPolygon.myStyle.customSvgMarkup = parsed.markup;
+                selectedPavementPolygon.myStyle.customSvgViewBox = parsed.viewBox;
+                applyPavementFill(selectedPavementPolygon);
+            }
+        }
+
+        document.getElementById('pavementSvgFile').addEventListener('change', function (e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function (evt) {
+                document.getElementById('pavementSvgPaste').value = evt.target.result;
+                applyPavementSvgFromTextarea();
+            };
+            reader.readAsText(file);
+        });
+
+        document.getElementById('pavementSvgApply').addEventListener('click', applyPavementSvgFromTextarea);
 
         // --- Pavement Color (Polygon) Section ---
         document.getElementById('drawPavementPolygon').addEventListener('click', function () {
@@ -1338,6 +1532,10 @@
             const patternLineWidthFt = parseFloat(document.getElementById('pavementPatternLineWidth').value) || 0.5;
             const patternLineSpacingFt = parseFloat(document.getElementById('pavementPatternLineSpacing').value) || 2;
             const patternOffsetFt = parseFloat(document.getElementById('pavementPatternOffset').value) || 0;
+            const customSvgParsed = fillTypeValue === 'custom-svg' ? sanitizeSvgMarkup(document.getElementById('pavementSvgPaste').value) : null;
+            const customSvgSizeFt = parseFloat(document.getElementById('pavementSvgScale').value) || 3;
+            const customSvgOffsetXFt = parseFloat(document.getElementById('pavementSvgOffsetX').value) || 0;
+            const customSvgOffsetYFt = parseFloat(document.getElementById('pavementSvgOffsetY').value) || 0;
             // `pane` must be set at layer creation time -- Leaflet's setStyle() only
             // updates style attributes and cannot move a layer's DOM element into a
             // different pane after the fact. Passing it here (rather than via
@@ -1364,6 +1562,11 @@
                     patternLineWidthFt: patternLineWidthFt,
                     patternLineSpacingFt: patternLineSpacingFt,
                     patternOffsetFt: patternOffsetFt,
+                    customSvgMarkup: customSvgParsed ? customSvgParsed.markup : undefined,
+                    customSvgViewBox: customSvgParsed ? customSvgParsed.viewBox : undefined,
+                    customSvgSizeFt: customSvgSizeFt,
+                    customSvgOffsetXFt: customSvgOffsetXFt,
+                    customSvgOffsetYFt: customSvgOffsetYFt,
                     pane: 'pavementPane'
                 };
                 applyPavementFill(polygon);
@@ -1476,11 +1679,13 @@
         document.getElementById('pavementFillType').addEventListener('change', function () {
             const value = this.value;
             const isPattern = value !== 'solid';
+            const isCustomSvg = value === 'custom-svg';
             document.getElementById('pavementPatternControls').style.display = isPattern ? 'block' : 'none';
+            document.getElementById('pavementStripeControls').style.display = isCustomSvg ? 'none' : 'block';
+            document.getElementById('pavementSvgControls').style.display = isCustomSvg ? 'block' : 'none';
 
-            // Switching pattern type resets Line Width/Spacing/Offset to
-            // that pattern's defaults, both in the controls and, if
-            // selected, on the polygon itself.
+            // Switching pattern type resets its controls to defaults, both
+            // in the form and, if selected, on the polygon itself.
             const defaults = PAVEMENT_PATTERN_DEFAULTS.stripes;
             document.getElementById('pavementPatternLineWidth').value = defaults.widthFt;
             document.getElementById('pavementPatternLineWidthValue').textContent = defaults.widthFt.toFixed(2) + " ft";
@@ -1492,13 +1697,18 @@
             if (selectedPavementPolygon) {
                 selectedPavementPolygon.myStyle.fillMode = isPattern ? 'pattern' : 'solid';
                 selectedPavementPolygon.myStyle.pattern = isPattern ? value : undefined;
-                if (isPattern) {
+                if (isPattern && !isCustomSvg) {
                     selectedPavementPolygon.myStyle.patternLineWidthFt = defaults.widthFt;
                     selectedPavementPolygon.myStyle.patternLineSpacingFt = defaults.spacingFt;
                     selectedPavementPolygon.myStyle.patternOffsetFt = 0;
                 }
                 applyPavementFill(selectedPavementPolygon);
             }
+            // Custom SVG needs its own artwork (from the paste box/file
+            // upload) before there's anything to render --
+            // syncPavementFillControlsToPolygon() already restores it when
+            // re-selecting a polygon that has one, and the "Use This SVG"
+            // button/file input apply it explicitly otherwise.
         });
 
         document.getElementById('pavementPatternRotation').addEventListener('input', function () {
@@ -1533,6 +1743,33 @@
             document.getElementById('pavementPatternOffsetValue').textContent = offsetFt.toFixed(2) + " ft";
             if (selectedPavementPolygon) {
                 selectedPavementPolygon.myStyle.patternOffsetFt = offsetFt;
+                applyPavementFill(selectedPavementPolygon);
+            }
+        });
+
+        document.getElementById('pavementSvgScale').addEventListener('input', function () {
+            const sizeFt = parseFloat(this.value) || 0.2;
+            document.getElementById('pavementSvgScaleValue').textContent = sizeFt.toFixed(2) + " ft";
+            if (selectedPavementPolygon) {
+                selectedPavementPolygon.myStyle.customSvgSizeFt = sizeFt;
+                applyPavementFill(selectedPavementPolygon);
+            }
+        });
+
+        document.getElementById('pavementSvgOffsetX').addEventListener('input', function () {
+            const offsetFt = parseFloat(this.value) || 0;
+            document.getElementById('pavementSvgOffsetXValue').textContent = offsetFt.toFixed(2) + " ft";
+            if (selectedPavementPolygon) {
+                selectedPavementPolygon.myStyle.customSvgOffsetXFt = offsetFt;
+                applyPavementFill(selectedPavementPolygon);
+            }
+        });
+
+        document.getElementById('pavementSvgOffsetY').addEventListener('input', function () {
+            const offsetFt = parseFloat(this.value) || 0;
+            document.getElementById('pavementSvgOffsetYValue').textContent = offsetFt.toFixed(2) + " ft";
+            if (selectedPavementPolygon) {
+                selectedPavementPolygon.myStyle.customSvgOffsetYFt = offsetFt;
                 applyPavementFill(selectedPavementPolygon);
             }
         });

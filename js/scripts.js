@@ -777,6 +777,13 @@ function feetToPavementPatternPixels(feet) {
     return feet * PAVEMENT_PIXELS_PER_FOOT_AT_ZOOM21 * getPavementPatternZoomFactor();
 }
 
+// Formats the Custom SVG "Pattern Size" scalar for its readout: magnitude
+// in feet, with a "(mirrored)" note when negative (see
+// updateCustomSvgPattern() for what the sign means).
+function formatSvgScaleLabel(scalar) {
+    return Math.abs(scalar).toFixed(2) + " ft" + (scalar < 0 ? " (mirrored)" : "");
+}
+
 function getPavementPatternId(polygon) {
     return `pavement-pattern-${L.stamp(polygon)}`;
 }
@@ -877,7 +884,13 @@ function updateCustomSvgPattern(polygon) {
     const style = polygon.myStyle;
     if (!style.customSvgMarkup) { removePavementPattern(polygon); return; }
 
-    const sizeFt = style.customSvgSizeFt || 3;
+    // Pattern Size is a signed scalar (-100..100): its magnitude sets the
+    // real-world tile size in feet, and a negative value mirrors the
+    // artwork left-to-right at that same size, rather than meaning
+    // "negative feet" (not physically meaningful). Falls back to the old
+    // plain-feet field for polygons saved before this control took a sign.
+    const scalar = style.customSvgScale !== undefined ? style.customSvgScale : (style.customSvgSizeFt || 3);
+    const sizeFt = Math.max(0.05, Math.abs(scalar));
     const spacing = Math.max(4, feetToPavementPatternPixels(sizeFt));
     const rotation = style.patternRotation || 0;
 
@@ -893,10 +906,18 @@ function updateCustomSvgPattern(polygon) {
     patternEl.setAttribute('patternTransform', `rotate(${rotation})`);
 
     // Fit the artwork's own viewBox into a (spacing x spacing) square,
-    // centered on the tile position.
+    // centered on the tile position. scaleX carries the mirror sign;
+    // scaleY never mirrors (only left-right flipping is offered).
+    // Centering with the SIGNED scaleX (not its magnitude) is what keeps
+    // the artwork centered in both the normal and mirrored case: the
+    // formula shifts tileX the same amount either way, just in the
+    // opposite direction, exactly compensating for which way the artwork
+    // extends from its anchor corner -- verified in a real browser at both
+    // signs before relying on it.
     const vb = style.customSvgViewBox;
     const [vbX, vbY, vbW, vbH] = vb ? vb.split(/\s+/).map(Number) : [0, 0, 100, 100];
-    const scale = spacing / Math.max(vbW, vbH || 1);
+    const scaleMag = spacing / Math.max(vbW, vbH || 1);
+    const scaleX = scalar < 0 ? -scaleMag : scaleMag;
 
     // <pattern> content is clipped to its own [0, spacing) x [0, spacing)
     // tile box by default, so artwork near ANY edge (or corner) of the
@@ -906,9 +927,9 @@ function updateCustomSvgPattern(polygon) {
     let inner = '';
     for (let dx = -1; dx <= 1; dx++) {
         for (let dy = -1; dy <= 1; dy++) {
-            const tileX = phaseX + dx * spacing - (vbW * scale) / 2;
-            const tileY = phaseY + dy * spacing - (vbH * scale) / 2;
-            inner += `<g transform="translate(${tileX} ${tileY}) scale(${scale}) translate(${-vbX} ${-vbY})">${style.customSvgMarkup}</g>`;
+            const tileX = phaseX + dx * spacing - (vbW * scaleX) / 2;
+            const tileY = phaseY + dy * spacing - (vbH * scaleMag) / 2;
+            inner += `<g transform="translate(${tileX} ${tileY}) scale(${scaleX} ${scaleMag}) translate(${-vbX} ${-vbY})">${style.customSvgMarkup}</g>`;
         }
     }
     patternEl.innerHTML = inner;
@@ -1004,9 +1025,9 @@ function syncPavementFillControlsToPolygon(polygon) {
     document.getElementById('pavementSvgStatus').textContent = style.customSvgMarkup ? 'SVG loaded.' : '';
     document.getElementById('pavementSvgStatus').style.color = '';
 
-    const svgSizeFt = style.customSvgSizeFt || 3;
-    document.getElementById('pavementSvgScale').value = svgSizeFt;
-    document.getElementById('pavementSvgScaleValue').textContent = svgSizeFt.toFixed(2) + " ft";
+    const svgScale = style.customSvgScale !== undefined ? style.customSvgScale : (style.customSvgSizeFt || 3);
+    document.getElementById('pavementSvgScale').value = svgScale;
+    document.getElementById('pavementSvgScaleValue').textContent = formatSvgScaleLabel(svgScale);
 
     const svgOffsetXFt = style.customSvgOffsetXFt || 0;
     document.getElementById('pavementSvgOffsetX').value = svgOffsetXFt;
@@ -1105,7 +1126,11 @@ document.getElementById('drawPavementPolygon').addEventListener('click', functio
     const patternLineSpacingFt = parseFloat(document.getElementById('pavementPatternLineSpacing').value) || 2;
     const patternOffsetFt = parseFloat(document.getElementById('pavementPatternOffset').value) || 0;
     const customSvgParsed = fillTypeValue === 'custom-svg' ? sanitizeSvgMarkup(document.getElementById('pavementSvgPaste').value) : null;
-    const customSvgSizeFt = parseFloat(document.getElementById('pavementSvgScale').value) || 3;
+    // 0 is a legitimate (if degenerate, clamped small at render time) value
+    // on this -100..100 scalar, so only fall back to the default when the
+    // field is genuinely unparseable -- `|| 3` would wrongly replace 0.
+    const customSvgScaleParsed = parseFloat(document.getElementById('pavementSvgScale').value);
+    const customSvgScale = isNaN(customSvgScaleParsed) ? 3 : customSvgScaleParsed;
     const customSvgOffsetXFt = parseFloat(document.getElementById('pavementSvgOffsetX').value) || 0;
     const customSvgOffsetYFt = parseFloat(document.getElementById('pavementSvgOffsetY').value) || 0;
     // `pane` must be set at layer creation time -- Leaflet's setStyle() only
@@ -1136,7 +1161,7 @@ document.getElementById('drawPavementPolygon').addEventListener('click', functio
             patternOffsetFt: patternOffsetFt,
             customSvgMarkup: customSvgParsed ? customSvgParsed.markup : undefined,
             customSvgViewBox: customSvgParsed ? customSvgParsed.viewBox : undefined,
-            customSvgSizeFt: customSvgSizeFt,
+            customSvgScale: customSvgScale,
             customSvgOffsetXFt: customSvgOffsetXFt,
             customSvgOffsetYFt: customSvgOffsetYFt,
             pane: 'pavementPane'
@@ -1318,10 +1343,11 @@ document.getElementById('pavementPatternOffset').addEventListener('input', funct
 });
 
 document.getElementById('pavementSvgScale').addEventListener('input', function () {
-    const sizeFt = parseFloat(this.value) || 0.2;
-    document.getElementById('pavementSvgScaleValue').textContent = sizeFt.toFixed(2) + " ft";
+    const scaleParsed = parseFloat(this.value);
+    const scalar = isNaN(scaleParsed) ? 0 : scaleParsed;
+    document.getElementById('pavementSvgScaleValue').textContent = formatSvgScaleLabel(scalar);
     if (selectedPavementPolygon) {
-        selectedPavementPolygon.myStyle.customSvgSizeFt = sizeFt;
+        selectedPavementPolygon.myStyle.customSvgScale = scalar;
         applyPavementFill(selectedPavementPolygon);
     }
 });

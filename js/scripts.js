@@ -745,19 +745,40 @@ const pavementPatternDefs = (function () {
     return defs;
 })();
 
-// Tile spacing (in on-screen pixels) and line-thickness-to-spacing ratio for
-// each pattern, at zoom 21 and patternScale 1 -- zoom 21 is the reference
-// zoom the rest of the app already scales line weights/label sizes against
-// (see resizeTextLabels()/the callout-line zoomend handler), so pattern
-// density is kept consistent with everything else the app draws.
-const PAVEMENT_PATTERN_SPEC = {
-    stripes: { baseSpacing: 24, strokeRatio: 0.5 },   // bold bar/gap, crosswalk-style
-    'diagonal-hatch': { baseSpacing: 10, strokeRatio: 0.15 }, // thin parallel lines
-    'cross-hatch': { baseSpacing: 12, strokeRatio: 0.12 }     // thin grid
+// Per-pattern default line width/spacing in decimal feet, used to prefill
+// the controls when a polygon is created or its pattern type is switched.
+// Widths loosely follow real MUTCD-scale markings: crosswalk stripes are
+// bold 2' bars on a 4' pitch (2' gaps), hatch/gore markings are much finer.
+const PAVEMENT_PATTERN_DEFAULTS = {
+    stripes: { widthFt: 2, spacingFt: 4 },          // crosswalk-style bars
+    'diagonal-hatch': { widthFt: 0.5, spacingFt: 2 }, // thin parallel lines
+    'cross-hatch': { widthFt: 0.4, spacingFt: 2 }     // thin grid
 };
+
+// Real-world-to-pixel calibration for the Line Width/Spacing (ft) controls
+// below, so a value entered in feet renders at its true real-world size --
+// the same idea as the lane-line weight presets ("6 in" / "2 ft"), but
+// computed rather than hand-picked. The app already treats zoom 21 as its
+// reference "1x" scale (see the Math.pow(0.5, 21 - zoom) factor used
+// throughout for line weights/label sizes), so we need pixels-per-foot at
+// zoom 21: standard Web Mercator resolution is
+// metersPerPixel = 156543.03392 * cos(latitude) / 2^zoom, evaluated at this
+// project's default map center latitude (~41.486degN, Cleveland OH) as a
+// fixed reference -- matching how the rest of the app's zoom-based scaling
+// doesn't vary with pan position either, only with zoom level.
+const PAVEMENT_REFERENCE_LATITUDE = 41.48577;
+const PAVEMENT_METERS_PER_PIXEL_AT_ZOOM21 =
+    156543.03392 * Math.cos(PAVEMENT_REFERENCE_LATITUDE * Math.PI / 180) / Math.pow(2, 21);
+const PAVEMENT_PIXELS_PER_FOOT_AT_ZOOM21 = 1 / (PAVEMENT_METERS_PER_PIXEL_AT_ZOOM21 * 3.280839895);
 
 function getPavementPatternZoomFactor() {
     return Math.pow(0.5, 21 - map.getZoom());
+}
+
+// Converts a real-world length in decimal feet to on-screen pixels at the
+// map's current zoom.
+function feetToPavementPatternPixels(feet) {
+    return feet * PAVEMENT_PIXELS_PER_FOOT_AT_ZOOM21 * getPavementPatternZoomFactor();
 }
 
 function getPavementPatternId(polygon) {
@@ -765,17 +786,20 @@ function getPavementPatternId(polygon) {
 }
 
 // Rebuilds/updates the <pattern> element backing a pattern-filled polygon's
-// current style (pattern type, rotation, scale, color) and the current
-// zoom. Safe to call repeatedly -- it reuses the polygon's existing
+// current style (pattern type, rotation, line width/spacing, color) and the
+// current zoom. Safe to call repeatedly -- it reuses the polygon's existing
 // <pattern> element if there is one instead of recreating it.
 function updatePavementPattern(polygon) {
     const style = polygon.myStyle;
     if (!style || style.fillMode !== 'pattern') return;
 
-    const spec = PAVEMENT_PATTERN_SPEC[style.pattern] || PAVEMENT_PATTERN_SPEC['diagonal-hatch'];
-    const scale = style.patternScale || 1;
-    const spacing = Math.max(2, spec.baseSpacing * scale * getPavementPatternZoomFactor());
-    const strokeWidth = Math.max(0.5, spacing * spec.strokeRatio);
+    const defaults = PAVEMENT_PATTERN_DEFAULTS[style.pattern] || PAVEMENT_PATTERN_DEFAULTS['diagonal-hatch'];
+    const widthFt = style.patternLineWidthFt || defaults.widthFt;
+    // Spacing is the tile's repeat distance (line-to-line), so it can't be
+    // smaller than the line itself.
+    const spacingFt = Math.max(style.patternLineSpacingFt || defaults.spacingFt, widthFt);
+    const spacing = Math.max(2, feetToPavementPatternPixels(spacingFt));
+    const strokeWidth = Math.max(0.5, feetToPavementPatternPixels(widthFt));
     const rotation = style.patternRotation || 0;
     const color = style.fillColor || '#000000';
 
@@ -849,9 +873,14 @@ function syncPavementFillControlsToPolygon(polygon) {
     document.getElementById('pavementPatternRotation').value = rotation;
     document.getElementById('pavementPatternRotationValue').textContent = rotation + '°';
 
-    const scale = style.patternScale || 1;
-    document.getElementById('pavementPatternScale').value = scale;
-    document.getElementById('pavementPatternScaleValue').textContent = scale.toFixed(1) + 'x';
+    const defaults = PAVEMENT_PATTERN_DEFAULTS[fillTypeValue] || PAVEMENT_PATTERN_DEFAULTS['diagonal-hatch'];
+    const widthFt = style.patternLineWidthFt || defaults.widthFt;
+    document.getElementById('pavementPatternLineWidth').value = widthFt;
+    document.getElementById('pavementPatternLineWidthValue').textContent = widthFt.toFixed(2) + " ft";
+
+    const spacingFt = style.patternLineSpacingFt || defaults.spacingFt;
+    document.getElementById('pavementPatternLineSpacing').value = spacingFt;
+    document.getElementById('pavementPatternLineSpacingValue').textContent = spacingFt.toFixed(2) + " ft";
 }
 
 // --- Pavement Color (Polygon) Section ---
@@ -862,7 +891,8 @@ document.getElementById('drawPavementPolygon').addEventListener('click', functio
     const fillTypeValue = document.getElementById('pavementFillType').value;
     const fillMode = fillTypeValue === 'solid' ? 'solid' : 'pattern';
     const patternRotation = parseInt(document.getElementById('pavementPatternRotation').value, 10) || 0;
-    const patternScale = parseFloat(document.getElementById('pavementPatternScale').value) || 1;
+    const patternLineWidthFt = parseFloat(document.getElementById('pavementPatternLineWidth').value) || 0.5;
+    const patternLineSpacingFt = parseFloat(document.getElementById('pavementPatternLineSpacing').value) || 2;
     // `pane` must be set at layer creation time -- Leaflet's setStyle() only
     // updates style attributes and cannot move a layer's DOM element into a
     // different pane after the fact. Passing it here (rather than via
@@ -886,7 +916,8 @@ document.getElementById('drawPavementPolygon').addEventListener('click', functio
             fillMode: fillMode,
             pattern: fillMode === 'pattern' ? fillTypeValue : undefined,
             patternRotation: patternRotation,
-            patternScale: patternScale,
+            patternLineWidthFt: patternLineWidthFt,
+            patternLineSpacingFt: patternLineSpacingFt,
             pane: 'pavementPane'
         };
         applyPavementFill(polygon);
@@ -997,9 +1028,23 @@ document.getElementById('pavementFillType').addEventListener('change', function 
     const value = this.value;
     const isPattern = value !== 'solid';
     document.getElementById('pavementPatternControls').style.display = isPattern ? 'block' : 'none';
+
+    // Switching pattern type resets Line Width/Spacing to that pattern's
+    // defaults (crosswalk stripes are bold, hatch lines are fine) -- both in
+    // the controls and, if selected, on the polygon itself.
+    const defaults = PAVEMENT_PATTERN_DEFAULTS[value] || PAVEMENT_PATTERN_DEFAULTS['diagonal-hatch'];
+    document.getElementById('pavementPatternLineWidth').value = defaults.widthFt;
+    document.getElementById('pavementPatternLineWidthValue').textContent = defaults.widthFt.toFixed(2) + " ft";
+    document.getElementById('pavementPatternLineSpacing').value = defaults.spacingFt;
+    document.getElementById('pavementPatternLineSpacingValue').textContent = defaults.spacingFt.toFixed(2) + " ft";
+
     if (selectedPavementPolygon) {
         selectedPavementPolygon.myStyle.fillMode = isPattern ? 'pattern' : 'solid';
         selectedPavementPolygon.myStyle.pattern = isPattern ? value : undefined;
+        if (isPattern) {
+            selectedPavementPolygon.myStyle.patternLineWidthFt = defaults.widthFt;
+            selectedPavementPolygon.myStyle.patternLineSpacingFt = defaults.spacingFt;
+        }
         applyPavementFill(selectedPavementPolygon);
     }
 });
@@ -1013,11 +1058,20 @@ document.getElementById('pavementPatternRotation').addEventListener('input', fun
     }
 });
 
-document.getElementById('pavementPatternScale').addEventListener('input', function () {
-    const scale = parseFloat(this.value) || 1;
-    document.getElementById('pavementPatternScaleValue').textContent = scale.toFixed(1) + 'x';
+document.getElementById('pavementPatternLineWidth').addEventListener('input', function () {
+    const widthFt = parseFloat(this.value) || 0.05;
+    document.getElementById('pavementPatternLineWidthValue').textContent = widthFt.toFixed(2) + " ft";
     if (selectedPavementPolygon) {
-        selectedPavementPolygon.myStyle.patternScale = scale;
+        selectedPavementPolygon.myStyle.patternLineWidthFt = widthFt;
+        applyPavementFill(selectedPavementPolygon);
+    }
+});
+
+document.getElementById('pavementPatternLineSpacing').addEventListener('input', function () {
+    const spacingFt = parseFloat(this.value) || 0.1;
+    document.getElementById('pavementPatternLineSpacingValue').textContent = spacingFt.toFixed(2) + " ft";
+    if (selectedPavementPolygon) {
+        selectedPavementPolygon.myStyle.patternLineSpacingFt = spacingFt;
         applyPavementFill(selectedPavementPolygon);
     }
 });

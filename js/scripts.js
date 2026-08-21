@@ -112,6 +112,25 @@ map.on('polylinemeasure:toggle', function (e) {
 tileLayers.push({ name: "Cuyahoga County", url: 'https://gis.cuyahogacounty.us/server/rest/services/IMAGERY/2023_Fall_Aerial/MapServer/tile/{z}/{y}/{x}', layer: esriTiles });
 tileLayers.push({ name: "OpenStreetMap", url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', layer: osmTiles });
 
+// External tile servers (esp. the Cuyahoga County GIS server) occasionally
+// drop a tile request outright -- e.g. NS_ERROR_DOM_NETWORK_ERR in Firefox --
+// leaving a permanently blank tile even though the connection is otherwise
+// fine. Retry a failed tile a couple of times with backoff instead of
+// leaving a hole in the map.
+const tileRetryCounts = new WeakMap();
+map.on('tileerror', function (e) {
+    const tile = e.tile;
+    if (!tile) return;
+    const attempts = tileRetryCounts.get(tile) || 0;
+    if (attempts >= 3) return; // give up -- the server/connection is genuinely down
+    tileRetryCounts.set(tile, attempts + 1);
+    const src = tile.src;
+    setTimeout(() => {
+        tile.src = ''; // force the browser to re-issue the request rather than use a cached failure
+        tile.src = src;
+    }, 1000 * (attempts + 1));
+});
+
 // Create separate layer groups.
 const pavementPolygonsLayer = L.featureGroup().addTo(map); // Underneath other features
 map.createPane('linesPane');
@@ -413,7 +432,12 @@ map.on('click', function (e) {
         if (!currentIconUrl) return;
         if (selectedMarker) { deselectMarker(); return; }
         deselectAllLineStrings();
-        if (document.querySelector(`.iconButton.selected`).classList.contains('sign')) {
+        // Defensive: currentIconUrl can only be set by clicking an icon
+        // button, which also marks it 'selected', but fall back to the
+        // default icon style rather than throwing if that ever drifts out
+        // of sync (e.g. the selection was cleared through some other path).
+        const selectedIconButton = document.querySelector(`.iconButton.selected`);
+        if (selectedIconButton && selectedIconButton.classList.contains('sign')) {
             className = 'marker-icon-sign';
         } else {
             className = 'marker-icon-default';
@@ -1637,6 +1661,11 @@ function deselectAllFeatures() {
     // Deselect all icon marker buttons
     const iconButtons = document.querySelectorAll('.iconButton');
     iconButtons.forEach(button => button.classList.remove('selected'));
+    // Clear the pending icon selection too -- otherwise a later map click
+    // (e.g. placing a callout line, which calls deselectAllFeatures() first)
+    // still sees a stale currentIconUrl and tries to read
+    // `.iconButton.selected`, which no longer exists and throws.
+    currentIconUrl = null;
     // Display the alt-text of the selected icon
     document.getElementById('selectedIconInfo').textContent = "Selected Icon: None";
     

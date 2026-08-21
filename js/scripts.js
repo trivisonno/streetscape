@@ -522,17 +522,29 @@ document.getElementById('removeMarker').addEventListener('click', function () {
     window.addEventListener('mouseup', function () { dragging = false; });
 })();
 
-document.getElementById('angle180Button').addEventListener('click', function () {
+// Rotate the selected marker by a fixed number of degrees (-90, 90, or 180)
+// relative to its current angle shown on the dial.
+function rotateSelectedMarkerBy(delta) {
     const angleValue = document.getElementById('angleValue');
-    let currentAngle = parseInt(angleValue.textContent);
-    currentAngle = (currentAngle + 180) % 360;
-    angleValue.textContent = currentAngle + '°';
-    const rad = currentAngle * Math.PI / 180;
+    const currentAngle = parseInt(angleValue.textContent, 10) || 0;
+    const newAngle = ((currentAngle + delta) % 360 + 360) % 360;
+    angleValue.textContent = newAngle + '°';
+    const rad = newAngle * Math.PI / 180;
     document.getElementById('angleLine').setAttribute('x2', 50 + 40 * Math.sin(rad));
     document.getElementById('angleLine').setAttribute('y2', 50 - 40 * Math.cos(rad));
     if (selectedMarker) {
-        selectedMarker.setRotationAngle(currentAngle);
+        selectedMarker.setRotationAngle(newAngle);
     }
+}
+
+document.getElementById('angleMinus90Button').addEventListener('click', function () {
+    rotateSelectedMarkerBy(-90);
+});
+document.getElementById('anglePlus90Button').addEventListener('click', function () {
+    rotateSelectedMarkerBy(90);
+});
+document.getElementById('angle180Button').addEventListener('click', function () {
+    rotateSelectedMarkerBy(180);
 });
 
 // --- Lane Lines Section ---

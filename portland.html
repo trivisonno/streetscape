@@ -301,7 +301,11 @@
                     <line id="angleLine" x1="50" y1="50" x2="50" y2="10" stroke="red" stroke-width="2" />
                 </svg>
                 <div id="angleValue">0°</div>
-                <button id="angle180Button">Flip 180° (F)</button>
+                <div style="display: flex; gap: 5px;">
+                    <button id="angleMinus90Button" style="flex: 1;">-90°</button>
+                    <button id="anglePlus90Button" style="flex: 1;">90°</button>
+                    <button id="angle180Button" style="flex: 1;">180° (F)</button>
+                </div>
             </div>
             <button id="removeMarker">Remove Selected Marker (R)</button>
         </div>
@@ -363,10 +367,10 @@
                 <span id="pavementFillOpacityValue">1</span>
             </div>
             <div id="pavementArea" style="margin-top: 10px; font-weight: bold;"></div>
-            <button id="drawPavementPolygon">New Pavement Shape</button>
-            <button id="editPavementPolygon">Edit Selected Pavement Polygon</button>
-            <button id="duplicatePavementPolygon">Duplicate Selected Pavement Polygon</button>
-            <button id="removePavementPolygon">Remove Selected Pavement Polygon</button>
+            <button id="drawPavementPolygon">New Pavement Shape (P)</button>
+            <button id="editPavementPolygon">Edit Selected Pavement Polygon (E)</button>
+            <button id="duplicatePavementPolygon">Duplicate Selected Pavement Polygon (D)</button>
+            <button id="removePavementPolygon">Remove Selected Pavement Polygon (R)</button>
         </div>
         <!-- Project Settings Tab -->
         <div id="projectSettingsTab" class="tabContent" style="display: none;">
@@ -893,17 +897,29 @@
             window.addEventListener('mouseup', function () { dragging = false; });
         })();
 
-        document.getElementById('angle180Button').addEventListener('click', function () {
+        // Rotate the selected marker by a fixed number of degrees (-90, 90,
+        // or 180) relative to its current angle shown on the dial.
+        function rotateSelectedMarkerBy(delta) {
             const angleValue = document.getElementById('angleValue');
-            let currentAngle = parseInt(angleValue.textContent);
-            currentAngle = (currentAngle + 180) % 360;
-            angleValue.textContent = currentAngle + '°';
-            const rad = currentAngle * Math.PI / 180;
+            const currentAngle = parseInt(angleValue.textContent, 10) || 0;
+            const newAngle = ((currentAngle + delta) % 360 + 360) % 360;
+            angleValue.textContent = newAngle + '°';
+            const rad = newAngle * Math.PI / 180;
             document.getElementById('angleLine').setAttribute('x2', 50 + 40 * Math.sin(rad));
             document.getElementById('angleLine').setAttribute('y2', 50 - 40 * Math.cos(rad));
             if (selectedMarker) {
-                selectedMarker.setRotationAngle(currentAngle);
+                selectedMarker.setRotationAngle(newAngle);
             }
+        }
+
+        document.getElementById('angleMinus90Button').addEventListener('click', function () {
+            rotateSelectedMarkerBy(-90);
+        });
+        document.getElementById('anglePlus90Button').addEventListener('click', function () {
+            rotateSelectedMarkerBy(90);
+        });
+        document.getElementById('angle180Button').addEventListener('click', function () {
+            rotateSelectedMarkerBy(180);
         });
 
         // --- Lane Lines Section ---

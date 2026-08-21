@@ -723,8 +723,7 @@ document.getElementById('newOffsetLine').addEventListener('click', createOffsetL
 // --- Pavement Pattern Fills ---
 //
 // A pavement polygon can fill with a solid color or with a repeating SVG
-// pattern (parallel stripes, diagonal hatch, or cross hatch) for markings
-// like crosswalks and hatched/gore areas. Each pattern-filled polygon gets
+// stripe pattern for markings like crosswalks. Each pattern-filled polygon gets
 // its own <pattern> element (so it can carry its own rotation) referenced
 // via the polygon's `fillColor: 'url(#...)'` -- Leaflet's SVG renderer
 // passes fillColor straight through to the path's `fill` attribute, so any
@@ -747,12 +746,9 @@ const pavementPatternDefs = (function () {
 
 // Per-pattern default line width/spacing in decimal feet, used to prefill
 // the controls when a polygon is created or its pattern type is switched.
-// Widths loosely follow real MUTCD-scale markings: crosswalk stripes are
-// bold 2' bars on a 4' pitch (2' gaps), hatch/gore markings are much finer.
+// Crosswalk stripes default to bold 2' bars on a 4' pitch (2' gaps).
 const PAVEMENT_PATTERN_DEFAULTS = {
-    stripes: { widthFt: 2, spacingFt: 4 },          // crosswalk-style bars
-    'diagonal-hatch': { widthFt: 0.5, spacingFt: 2 }, // thin parallel lines
-    'cross-hatch': { widthFt: 0.4, spacingFt: 2 }     // thin grid
+    stripes: { widthFt: 2, spacingFt: 4 }
 };
 
 // Real-world-to-pixel calibration for the Line Width/Spacing (ft) controls
@@ -793,7 +789,7 @@ function updatePavementPattern(polygon) {
     const style = polygon.myStyle;
     if (!style || style.fillMode !== 'pattern') return;
 
-    const defaults = PAVEMENT_PATTERN_DEFAULTS[style.pattern] || PAVEMENT_PATTERN_DEFAULTS['diagonal-hatch'];
+    const defaults = PAVEMENT_PATTERN_DEFAULTS.stripes;
     const widthFt = style.patternLineWidthFt || defaults.widthFt;
     // Spacing is the tile's repeat distance (line-to-line), so it can't be
     // smaller than the line itself.
@@ -815,16 +811,14 @@ function updatePavementPattern(polygon) {
     patternEl.setAttribute('height', spacing);
     patternEl.setAttribute('patternTransform', `rotate(${rotation})`);
 
-    // Stripes and diagonal hatch are both just parallel lines -- the only
-    // difference is the stroke/spacing ratio above -- with the rotation
-    // control providing the orientation (parallel to the crosswalk's travel
-    // direction, 45 degrees for a hatch, etc). Cross hatch adds a second,
-    // perpendicular set of lines to form a grid.
-    let inner = `<line x1="0" y1="0" x2="0" y2="${spacing}" stroke="${color}" stroke-width="${strokeWidth}" />`;
-    if (style.pattern === 'cross-hatch') {
-        inner += `<line x1="0" y1="0" x2="${spacing}" y2="0" stroke="${color}" stroke-width="${strokeWidth}" />`;
-    }
-    patternEl.innerHTML = inner;
+    // The stripe sits at the tile's horizontal center (not its edge, x=0) so
+    // its stroke-width padding stays fully inside the tile's [0, spacing]
+    // box -- <pattern> content is clipped to that box by default, so a line
+    // drawn at the edge would have exactly half its stroke cut off by the
+    // neighboring tile boundary, rendering at half the intended width. The
+    // rotation control provides the orientation (parallel to a crosswalk's
+    // travel direction, etc).
+    patternEl.innerHTML = `<line x1="${spacing / 2}" y1="0" x2="${spacing / 2}" y2="${spacing}" stroke="${color}" stroke-width="${strokeWidth}" />`;
 }
 
 function removePavementPattern(polygon) {
@@ -864,7 +858,7 @@ map.on('zoomend', function () {
 function syncPavementFillControlsToPolygon(polygon) {
     const style = polygon.myStyle || {};
     const isPattern = style.fillMode === 'pattern';
-    const fillTypeValue = isPattern ? (style.pattern || 'diagonal-hatch') : 'solid';
+    const fillTypeValue = isPattern ? (style.pattern || 'stripes') : 'solid';
 
     document.getElementById('pavementFillType').value = fillTypeValue;
     document.getElementById('pavementPatternControls').style.display = isPattern ? 'block' : 'none';
@@ -873,7 +867,7 @@ function syncPavementFillControlsToPolygon(polygon) {
     document.getElementById('pavementPatternRotation').value = rotation;
     document.getElementById('pavementPatternRotationValue').textContent = rotation + '°';
 
-    const defaults = PAVEMENT_PATTERN_DEFAULTS[fillTypeValue] || PAVEMENT_PATTERN_DEFAULTS['diagonal-hatch'];
+    const defaults = PAVEMENT_PATTERN_DEFAULTS.stripes;
     const widthFt = style.patternLineWidthFt || defaults.widthFt;
     document.getElementById('pavementPatternLineWidth').value = widthFt;
     document.getElementById('pavementPatternLineWidthValue').textContent = widthFt.toFixed(2) + " ft";
@@ -1030,9 +1024,9 @@ document.getElementById('pavementFillType').addEventListener('change', function 
     document.getElementById('pavementPatternControls').style.display = isPattern ? 'block' : 'none';
 
     // Switching pattern type resets Line Width/Spacing to that pattern's
-    // defaults (crosswalk stripes are bold, hatch lines are fine) -- both in
-    // the controls and, if selected, on the polygon itself.
-    const defaults = PAVEMENT_PATTERN_DEFAULTS[value] || PAVEMENT_PATTERN_DEFAULTS['diagonal-hatch'];
+    // defaults, both in the controls and, if selected, on the polygon
+    // itself.
+    const defaults = PAVEMENT_PATTERN_DEFAULTS.stripes;
     document.getElementById('pavementPatternLineWidth').value = defaults.widthFt;
     document.getElementById('pavementPatternLineWidthValue').textContent = defaults.widthFt.toFixed(2) + " ft";
     document.getElementById('pavementPatternLineSpacing').value = defaults.spacingFt;

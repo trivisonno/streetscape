@@ -262,7 +262,23 @@ Cross traffic does not stop " style="width: 30px;">
                 </datalist><br>
                 <label for="pavementFillOpacity">Polygon Opacity:</label>
                 <input type="range" id="pavementFillOpacity" min="0" max="1" step="0.1" value="1">
-                <span id="pavementFillOpacityValue">1</span>
+                <span id="pavementFillOpacityValue">1</span><br>
+
+                <label for="pavementFillType">Fill Type:</label>
+                <select id="pavementFillType">
+                    <option value="solid">Solid Color</option>
+                    <option value="stripes">Stripes (Crosswalk)</option>
+                    <option value="diagonal-hatch">Diagonal Hatch</option>
+                    <option value="cross-hatch">Cross Hatch</option>
+                </select>
+                <div id="pavementPatternControls" style="display: none;">
+                    <label for="pavementPatternRotation">Pattern Rotation:</label>
+                    <input type="range" id="pavementPatternRotation" min="0" max="359" step="1" value="0">
+                    <span id="pavementPatternRotationValue">0°</span><br>
+                    <label for="pavementPatternScale">Pattern Scale:</label>
+                    <input type="range" id="pavementPatternScale" min="0.5" max="3" step="0.1" value="1">
+                    <span id="pavementPatternScaleValue">1.0x</span>
+                </div>
             </div>
             <div id="pavementArea" style="margin-top: 10px; font-weight: bold;"></div>
             <button id="drawPavementPolygon">New Polygon Shape (P)</button>

@@ -720,11 +720,149 @@ function createOffsetLines() {
 // Add event listener to the "New Offset Line" button
 document.getElementById('newOffsetLine').addEventListener('click', createOffsetLines);
 
+// --- Pavement Pattern Fills ---
+//
+// A pavement polygon can fill with a solid color or with a repeating SVG
+// pattern (parallel stripes, diagonal hatch, or cross hatch) for markings
+// like crosswalks and hatched/gore areas. Each pattern-filled polygon gets
+// its own <pattern> element (so it can carry its own rotation) referenced
+// via the polygon's `fillColor: 'url(#...)'` -- Leaflet's SVG renderer
+// passes fillColor straight through to the path's `fill` attribute, so any
+// valid SVG paint reference works, no different from a plain hex color.
+// The <defs> holding these patterns lives in a small dedicated SVG appended
+// to the page (not inside Leaflet's own per-pane SVG), so it isn't at risk
+// of being cleared out by Leaflet's own DOM management of that pane.
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const pavementPatternDefs = (function () {
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('width', '0');
+    svg.setAttribute('height', '0');
+    svg.style.position = 'absolute';
+    svg.style.pointerEvents = 'none';
+    const defs = document.createElementNS(SVG_NS, 'defs');
+    svg.appendChild(defs);
+    document.body.appendChild(svg);
+    return defs;
+})();
+
+// Tile spacing (in on-screen pixels) and line-thickness-to-spacing ratio for
+// each pattern, at zoom 21 and patternScale 1 -- zoom 21 is the reference
+// zoom the rest of the app already scales line weights/label sizes against
+// (see resizeTextLabels()/the callout-line zoomend handler), so pattern
+// density is kept consistent with everything else the app draws.
+const PAVEMENT_PATTERN_SPEC = {
+    stripes: { baseSpacing: 24, strokeRatio: 0.5 },   // bold bar/gap, crosswalk-style
+    'diagonal-hatch': { baseSpacing: 10, strokeRatio: 0.15 }, // thin parallel lines
+    'cross-hatch': { baseSpacing: 12, strokeRatio: 0.12 }     // thin grid
+};
+
+function getPavementPatternZoomFactor() {
+    return Math.pow(0.5, 21 - map.getZoom());
+}
+
+function getPavementPatternId(polygon) {
+    return `pavement-pattern-${L.stamp(polygon)}`;
+}
+
+// Rebuilds/updates the <pattern> element backing a pattern-filled polygon's
+// current style (pattern type, rotation, scale, color) and the current
+// zoom. Safe to call repeatedly -- it reuses the polygon's existing
+// <pattern> element if there is one instead of recreating it.
+function updatePavementPattern(polygon) {
+    const style = polygon.myStyle;
+    if (!style || style.fillMode !== 'pattern') return;
+
+    const spec = PAVEMENT_PATTERN_SPEC[style.pattern] || PAVEMENT_PATTERN_SPEC['diagonal-hatch'];
+    const scale = style.patternScale || 1;
+    const spacing = Math.max(2, spec.baseSpacing * scale * getPavementPatternZoomFactor());
+    const strokeWidth = Math.max(0.5, spacing * spec.strokeRatio);
+    const rotation = style.patternRotation || 0;
+    const color = style.fillColor || '#000000';
+
+    const id = getPavementPatternId(polygon);
+    let patternEl = document.getElementById(id);
+    if (!patternEl) {
+        patternEl = document.createElementNS(SVG_NS, 'pattern');
+        patternEl.setAttribute('id', id);
+        patternEl.setAttribute('patternUnits', 'userSpaceOnUse');
+        pavementPatternDefs.appendChild(patternEl);
+    }
+    patternEl.setAttribute('width', spacing);
+    patternEl.setAttribute('height', spacing);
+    patternEl.setAttribute('patternTransform', `rotate(${rotation})`);
+
+    // Stripes and diagonal hatch are both just parallel lines -- the only
+    // difference is the stroke/spacing ratio above -- with the rotation
+    // control providing the orientation (parallel to the crosswalk's travel
+    // direction, 45 degrees for a hatch, etc). Cross hatch adds a second,
+    // perpendicular set of lines to form a grid.
+    let inner = `<line x1="0" y1="0" x2="0" y2="${spacing}" stroke="${color}" stroke-width="${strokeWidth}" />`;
+    if (style.pattern === 'cross-hatch') {
+        inner += `<line x1="0" y1="0" x2="${spacing}" y2="0" stroke="${color}" stroke-width="${strokeWidth}" />`;
+    }
+    patternEl.innerHTML = inner;
+}
+
+function removePavementPattern(polygon) {
+    const patternEl = document.getElementById(getPavementPatternId(polygon));
+    if (patternEl) patternEl.remove();
+}
+
+// Applies a pavement polygon's current fill (solid or pattern) to the map,
+// based on its myStyle. Call this after creating a polygon or after
+// changing any of its fill-related myStyle fields.
+function applyPavementFill(polygon) {
+    const style = polygon.myStyle;
+    if (!style) return;
+    if (style.fillMode === 'pattern') {
+        updatePavementPattern(polygon);
+        polygon.setStyle({ fillColor: `url(#${getPavementPatternId(polygon)})`, fillOpacity: style.fillOpacity });
+    } else {
+        removePavementPattern(polygon);
+        polygon.setStyle({ fillColor: style.fillColor, fillOpacity: style.fillOpacity });
+    }
+}
+
+// Pattern tiles are sized in on-screen pixels, so refresh every
+// pattern-filled polygon's tile size whenever the zoom level changes.
+map.on('zoomend', function () {
+    pavementPolygons.forEach(polygon => {
+        if (polygon.myStyle && polygon.myStyle.fillMode === 'pattern') {
+            updatePavementPattern(polygon);
+        }
+    });
+});
+
+// Reflects a selected pavement polygon's fill settings in the Fill Type /
+// pattern controls, so switching between a solid polygon and a pattern
+// polygon doesn't leave stale settings from whichever was edited last that
+// could otherwise be applied to the wrong polygon by the next slider tweak.
+function syncPavementFillControlsToPolygon(polygon) {
+    const style = polygon.myStyle || {};
+    const isPattern = style.fillMode === 'pattern';
+    const fillTypeValue = isPattern ? (style.pattern || 'diagonal-hatch') : 'solid';
+
+    document.getElementById('pavementFillType').value = fillTypeValue;
+    document.getElementById('pavementPatternControls').style.display = isPattern ? 'block' : 'none';
+
+    const rotation = style.patternRotation || 0;
+    document.getElementById('pavementPatternRotation').value = rotation;
+    document.getElementById('pavementPatternRotationValue').textContent = rotation + '°';
+
+    const scale = style.patternScale || 1;
+    document.getElementById('pavementPatternScale').value = scale;
+    document.getElementById('pavementPatternScaleValue').textContent = scale.toFixed(1) + 'x';
+}
+
 // --- Pavement Color (Polygon) Section ---
 document.getElementById('drawPavementPolygon').addEventListener('click', function () {
     const strokeColor = document.getElementById('pavementStroke').value;
     const fillColor = document.getElementById('pavementFill').value;
     const fillOpacity = parseFloat(document.getElementById('pavementFillOpacity').value);
+    const fillTypeValue = document.getElementById('pavementFillType').value;
+    const fillMode = fillTypeValue === 'solid' ? 'solid' : 'pattern';
+    const patternRotation = parseInt(document.getElementById('pavementPatternRotation').value, 10) || 0;
+    const patternScale = parseFloat(document.getElementById('pavementPatternScale').value) || 1;
     // `pane` must be set at layer creation time -- Leaflet's setStyle() only
     // updates style attributes and cannot move a layer's DOM element into a
     // different pane after the fact. Passing it here (rather than via
@@ -738,17 +876,20 @@ document.getElementById('drawPavementPolygon').addEventListener('click', functio
         if (polygon.disableEdit) { polygon.disableEdit(); }
         polygon.setStyle({
             color: strokeColor,
-            weight: 0,
-            fillColor: fillColor,
-            fillOpacity: fillOpacity
+            weight: 0
         });
         polygon.myStyle = {
             color: strokeColor,
             weight: 0,
             fillColor: fillColor,
             fillOpacity: fillOpacity,
+            fillMode: fillMode,
+            pattern: fillMode === 'pattern' ? fillTypeValue : undefined,
+            patternRotation: patternRotation,
+            patternScale: patternScale,
             pane: 'pavementPane'
         };
+        applyPavementFill(polygon);
         pavementPolygonsLayer.addLayer(polygon);
         pavementPolygons.push(polygon);
         polygon.off('editable:drawing:commit editable:drawing:end');
@@ -760,6 +901,7 @@ document.getElementById('drawPavementPolygon').addEventListener('click', functio
             selectedPavementPolygon = polygon;
             polygon.setStyle({ dashArray: "20,20", weight: 5, color: 'red' });
             updatePavementAreaDisplay(polygon); // Update area display
+            syncPavementFillControlsToPolygon(polygon);
         });
         addPavementPolygonToLayer(polygon);
     });
@@ -790,11 +932,14 @@ document.getElementById('duplicatePavementPolygon').addEventListener('click', fu
     const duplicate = L.polygon(offsetLatLngs, {
         color: source.myStyle.color,
         weight: source.myStyle.weight,
-        fillColor: source.myStyle.fillColor,
-        fillOpacity: source.myStyle.fillOpacity,
         pane: 'pavementPane'
     });
+    // A pattern-filled source's myStyle.fillColor is always the plain line
+    // color (never the live `url(#...)` reference -- see applyPavementFill),
+    // so it's safe to spread verbatim; applyPavementFill() below builds the
+    // duplicate its own <pattern> element rather than reusing the source's.
     duplicate.myStyle = { ...source.myStyle };
+    applyPavementFill(duplicate);
 
     // Insert the duplicate immediately after the source in the ordering
     // array, then redraw so it re-renders just above the original within
@@ -812,12 +957,14 @@ document.getElementById('duplicatePavementPolygon').addEventListener('click', fu
         selectedPavementPolygon = duplicate;
         duplicate.setStyle({ dashArray: "20,20", weight: 5, color: 'red' });
         updatePavementAreaDisplay(duplicate);
+        syncPavementFillControlsToPolygon(duplicate);
     });
 
     deselectAllPavementPolygons();
     selectedPavementPolygon = duplicate;
     duplicate.setStyle({ dashArray: "20,20", weight: 5, color: 'red' });
     updatePavementAreaDisplay(duplicate);
+    syncPavementFillControlsToPolygon(duplicate);
 
     // Ensure the duplicate is interactive even if pavement editing was
     // toggled off, then immediately enter drag/edit mode on it.
@@ -830,9 +977,10 @@ document.getElementById('pavementFill').addEventListener('change', function () {
     const newFillColor = this.value;
     document.getElementById('pavementFill').textContent = this.value;
     if (selectedPavementPolygon) {
-        selectedPavementPolygon.setStyle({ fillColor: newFillColor });
-        // Also update the saved style so future edits persist the new opacity.
+        // Also doubles as the pattern's line color in pattern mode, so route
+        // through applyPavementFill() rather than setStyle() directly.
         selectedPavementPolygon.myStyle.fillColor = newFillColor;
+        applyPavementFill(selectedPavementPolygon);
     }
 });
 
@@ -840,14 +988,43 @@ document.getElementById('pavementFillOpacity').addEventListener('click', functio
     const newOpacity = parseFloat(this.value);
     document.getElementById('pavementFillOpacityValue').textContent = this.value;
     if (selectedPavementPolygon) {
-        selectedPavementPolygon.setStyle({ fillOpacity: newOpacity });
-        // Also update the saved style so future edits persist the new opacity.
         selectedPavementPolygon.myStyle.fillOpacity = newOpacity;
+        applyPavementFill(selectedPavementPolygon);
+    }
+});
+
+document.getElementById('pavementFillType').addEventListener('change', function () {
+    const value = this.value;
+    const isPattern = value !== 'solid';
+    document.getElementById('pavementPatternControls').style.display = isPattern ? 'block' : 'none';
+    if (selectedPavementPolygon) {
+        selectedPavementPolygon.myStyle.fillMode = isPattern ? 'pattern' : 'solid';
+        selectedPavementPolygon.myStyle.pattern = isPattern ? value : undefined;
+        applyPavementFill(selectedPavementPolygon);
+    }
+});
+
+document.getElementById('pavementPatternRotation').addEventListener('input', function () {
+    const rotation = parseInt(this.value, 10) || 0;
+    document.getElementById('pavementPatternRotationValue').textContent = rotation + '°';
+    if (selectedPavementPolygon) {
+        selectedPavementPolygon.myStyle.patternRotation = rotation;
+        applyPavementFill(selectedPavementPolygon);
+    }
+});
+
+document.getElementById('pavementPatternScale').addEventListener('input', function () {
+    const scale = parseFloat(this.value) || 1;
+    document.getElementById('pavementPatternScaleValue').textContent = scale.toFixed(1) + 'x';
+    if (selectedPavementPolygon) {
+        selectedPavementPolygon.myStyle.patternScale = scale;
+        applyPavementFill(selectedPavementPolygon);
     }
 });
 
 document.getElementById('removePavementPolygon').addEventListener('click', function () {
     if (selectedPavementPolygon) {
+        removePavementPattern(selectedPavementPolygon); // Clean up its <pattern> def, if any
         pavementPolygonsLayer.removeLayer(selectedPavementPolygon);
         const idx = pavementPolygons.indexOf(selectedPavementPolygon);
         if (idx > -1) pavementPolygons.splice(idx, 1);
@@ -1187,11 +1364,10 @@ function loadFeaturesFromGeoJson(geojson, options) {
                 const poly = L.polygon(latlngs, {
                     color: style.color,
                     weight: style.weight,
-                    fillColor: style.fillColor,
-                    fillOpacity: style.fillOpacity,
                     pane: 'pavementPane'
                 }).addTo(pavementPolygonsLayer);
                 poly.myStyle = style;
+                applyPavementFill(poly); // Handles both solid fillColor and pattern fills (older saves without fillMode default to solid)
                 pavementPolygons.push(poly);
                 poly.on('click', function (ev) {
                     L.DomEvent.stopPropagation(ev);
@@ -1202,6 +1378,7 @@ function loadFeaturesFromGeoJson(geojson, options) {
                     selectedPavementPolygon = poly;
                     poly.setStyle({ dashArray: "20,20", weight: 5, color: 'red' });
                     updatePavementAreaDisplay(poly);
+                    syncPavementFillControlsToPolygon(poly);
                 });
                 poly.disableEdit();
                 poly.options.interactive = false;
@@ -1589,11 +1766,12 @@ document.addEventListener('keydown', function (e) {
             selectedLaneLine = null;
             removeArrowheads();
         } else if (selectedPavementPolygon) {
+            removePavementPattern(selectedPavementPolygon); // Clean up its <pattern> def, if any
             pavementPolygonsLayer.removeLayer(selectedPavementPolygon);
             const idx = pavementPolygons.indexOf(selectedPavementPolygon);
             if (idx > -1) pavementPolygons.splice(idx, 1);
             selectedPavementPolygon = null;
-        }  
+        }
         if (selectedCalloutLine) {
             dimensionsLayer.removeLayer(selectedCalloutLine);
             selectedCalloutLine = null;
@@ -1628,7 +1806,7 @@ document.getElementById('clearMap').addEventListener('click', function () {
         laneLines.length = 0;
 
         // Remove all pavement polygons
-        pavementPolygons.forEach(p => map.removeLayer(p));
+        pavementPolygons.forEach(p => { removePavementPattern(p); map.removeLayer(p); });
         pavementPolygons.length = 0;
 
         // Reset the loadGeoJson file input
@@ -1831,6 +2009,7 @@ document.addEventListener('keydown', function (e) {
             removeArrowheads(); // Ensure arrowheads are removed
         } else if (selectedPavementPolygon) {
             // Trigger polygon removal
+            removePavementPattern(selectedPavementPolygon); // Clean up its <pattern> def, if any
             pavementPolygonsLayer.removeLayer(selectedPavementPolygon);
             const idx = pavementPolygons.indexOf(selectedPavementPolygon);
             if (idx > -1) pavementPolygons.splice(idx, 1);
@@ -2438,6 +2617,11 @@ function clearAllMapFeatures() {
     laneLinesLayer.clearLayers();
     laneLines.length = 0;
 
+    // Each pattern-filled polygon owns a <pattern> def outside Leaflet's own
+    // layer groups (see applyPavementFill()); clean those up too, since the
+    // polygon objects about to be discarded here are never reused -- a
+    // restored snapshot creates brand new polygon instances with new ids.
+    pavementPolygons.forEach(removePavementPattern);
     pavementPolygonsLayer.clearLayers();
     pavementPolygons.length = 0;
 

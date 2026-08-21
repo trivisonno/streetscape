@@ -843,6 +843,27 @@ document.getElementById('removePavementPolygon').addEventListener('click', funct
     }
 });
 
+// Pavements-tab keyboard shortcuts: P = new polygon, E = edit/drag selected,
+// D = duplicate selected, R = remove selected. Only active while the
+// Pavements tab is open, and just drive the existing buttons so behavior
+// (including their own "nothing selected" guards) stays in one place.
+document.addEventListener('keydown', function (e) {
+    if (disableKeyShortcuts) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (pavementColorTab.style.display === "none") return;
+
+    const key = e.key.toLowerCase();
+    if (key === 'p') {
+        document.getElementById('drawPavementPolygon').click();
+    } else if (key === 'e') {
+        document.getElementById('editPavementPolygon').click();
+    } else if (key === 'd') {
+        document.getElementById('duplicatePavementPolygon').click();
+    } else if (key === 'r') {
+        document.getElementById('removePavementPolygon').click();
+    }
+});
+
 // Function to calculate the area of a polygon in square feet and square yards
 function calculatePolygonArea(polygon) {
     const latLngs = polygon.getLatLngs()[0] || polygon.getLatLngs();
@@ -1096,7 +1117,8 @@ if (geoJsonUrl) {
     loadGeoJsonFromUrl(geoJsonUrl);
 }
 
-function loadFeaturesFromGeoJson(geojson) {
+function loadFeaturesFromGeoJson(geojson, options) {
+    const skipViewChange = !!(options && options.skipViewChange);
     try {
         geojson.features.forEach(feature => {
             if (feature.geometry.type === "Point" && feature.properties.type === "marking") {
@@ -1365,17 +1387,22 @@ function loadFeaturesFromGeoJson(geojson) {
             document.getElementById('initialZoom').value = geojson.project.initialZoom || 21;
             // Update tile layer checkboxes.
 
-            // Set map view to project initial settings.
-            if (geojson.project.initialCenter) {
-                map.setView(geojson.project.initialCenter, geojson.project.initialZoom);
-            } else {
-                // Zoom to features if `initialCenter` is not provided.
-                let bounds = new L.LatLngBounds();
-                markers.forEach(m => bounds.extend(m.getLatLng()));
-                laneLines.forEach(l => l.getLatLngs().forEach(ll => bounds.extend(ll)));
-                pavementPolygons.forEach(p => p.getLatLngs()[0].forEach(ll => bounds.extend(ll)));
-                if (bounds.isValid()) {
-                    map.fitBounds(bounds);
+            // Set map view to project initial settings. Skipped for undo/redo
+            // restores (skipViewChange), which already preserve whatever
+            // view the user currently has -- moving there and then snapping
+            // back caused a visible tile "flash" as the basemap reset twice.
+            if (!skipViewChange) {
+                if (geojson.project.initialCenter) {
+                    map.setView(geojson.project.initialCenter, geojson.project.initialZoom);
+                } else {
+                    // Zoom to features if `initialCenter` is not provided.
+                    let bounds = new L.LatLngBounds();
+                    markers.forEach(m => bounds.extend(m.getLatLng()));
+                    laneLines.forEach(l => l.getLatLngs().forEach(ll => bounds.extend(ll)));
+                    pavementPolygons.forEach(p => p.getLatLngs()[0].forEach(ll => bounds.extend(ll)));
+                    if (bounds.isValid()) {
+                        map.fitBounds(bounds);
+                    }
                 }
             }
             const projectName = geojson.project.name || file.name.replace(/\.[^/.]+$/, ""); // Use file name if no project name
@@ -1384,7 +1411,7 @@ function loadFeaturesFromGeoJson(geojson) {
             updateHtmlTitle(projectName); // Update the title
         }
         // Zoom to features if project settings not provided.
-        else {
+        else if (!skipViewChange) {
             let bounds = new L.LatLngBounds();
             markers.forEach(m => bounds.extend(m.getLatLng()));
             laneLines.forEach(l => l.getLatLngs().forEach(ll => bounds.extend(ll)));
@@ -2251,12 +2278,20 @@ function rotatePolygon(polygon, angleDifference) {
 }
 
 // Initialize the polygon angle selector
+let setPolygonDialAngle; // exposed so the -90/90/180 buttons below can keep this dial in sync
 (function () {
     const svg = document.getElementById('polygonAngleSVG');
     const angleLine = document.getElementById('polygonAngleLine');
     const angleValue = document.getElementById('polygonAngleValue');
     let dragging = false;
     let currentAngle = 0; // Track the current angle of the polygon
+
+    function renderAngle(newAngle) {
+        const rad = newAngle * Math.PI / 180, r = 40;
+        angleLine.setAttribute('x2', 50 + r * Math.sin(rad));
+        angleLine.setAttribute('y2', 50 - r * Math.cos(rad));
+        angleValue.textContent = Math.round(newAngle) + '°';
+    }
 
     function getMousePosition(evt) {
         const rect = svg.getBoundingClientRect();
@@ -2272,11 +2307,7 @@ function rotatePolygon(polygon, angleDifference) {
 
         const angleDifference = newAngle - currentAngle;
         currentAngle = newAngle;
-
-        const rad = newAngle * Math.PI / 180, r = 40;
-        angleLine.setAttribute('x2', centerX + r * Math.sin(rad));
-        angleLine.setAttribute('y2', centerY - r * Math.cos(rad));
-        angleValue.textContent = Math.round(newAngle) + '°';
+        renderAngle(newAngle);
 
         if (selectedPavementPolygon) {
             rotatePolygon(selectedPavementPolygon, angleDifference);
@@ -2286,25 +2317,36 @@ function rotatePolygon(polygon, angleDifference) {
     svg.addEventListener('mousedown', function (e) { dragging = true; updatePolygonAngle(e); });
     window.addEventListener('mousemove', function (e) { if (dragging) updatePolygonAngle(e); });
     window.addEventListener('mouseup', function () { dragging = false; });
+
+    // Let the fixed-angle buttons below rotate the polygon and keep this
+    // dial's internal angle in sync, so a later drag continues smoothly
+    // instead of jumping from a stale angle.
+    setPolygonDialAngle = function (newAngle) {
+        currentAngle = ((newAngle % 360) + 360) % 360;
+        renderAngle(currentAngle);
+    };
 })();
 
-// Add functionality for the 180° flip button
-document.getElementById('polygonAngle180Button').addEventListener('click', function () {
+// Rotate the selected pavement polygon by a fixed number of degrees (-90,
+// 90, or 180) relative to its current angle shown on the dial.
+function rotateSelectedPolygonBy(delta) {
     const angleValue = document.getElementById('polygonAngleValue');
-    let currentAngle = parseInt(angleValue.textContent);
-    const newAngle = (currentAngle + 180) % 360;
-    const angleDifference = newAngle - currentAngle;
-    angleValue.textContent = newAngle + '°';
-
-    // Update the angle selector line
-    const rad = newAngle * Math.PI / 180;
-    const centerX = 50, centerY = 50, r = 40;
-    document.getElementById('polygonAngleLine').setAttribute('x2', centerX + r * Math.sin(rad));
-    document.getElementById('polygonAngleLine').setAttribute('y2', centerY - r * Math.cos(rad));
+    const currentAngle = parseInt(angleValue.textContent, 10) || 0;
+    setPolygonDialAngle(currentAngle + delta);
 
     if (selectedPavementPolygon) {
-        rotatePolygon(selectedPavementPolygon, angleDifference);
+        rotatePolygon(selectedPavementPolygon, delta);
     }
+}
+
+document.getElementById('polygonAngleMinus90Button').addEventListener('click', function () {
+    rotateSelectedPolygonBy(-90);
+});
+document.getElementById('polygonAnglePlus90Button').addEventListener('click', function () {
+    rotateSelectedPolygonBy(90);
+});
+document.getElementById('polygonAngle180Button').addEventListener('click', function () {
+    rotateSelectedPolygonBy(180);
 });
 
 
@@ -2397,16 +2439,8 @@ function restoreHistorySnapshot(index) {
     isRestoringHistory = true;
     clearTimeout(historyDebounceTimer);
 
-    // loadFeaturesFromGeoJson() re-centers the map on the project's saved
-    // "initial view" whenever it's present, which is right for an explicit
-    // Load but would otherwise make every undo/redo jerk the viewport back
-    // to that view. Preserve whatever the user is currently looking at.
-    const currentCenter = map.getCenter();
-    const currentZoom = map.getZoom();
-
     clearAllMapFeatures();
-    loadFeaturesFromGeoJson(JSON.parse(historyStack[index]));
-    map.setView(currentCenter, currentZoom, { animate: false });
+    loadFeaturesFromGeoJson(JSON.parse(historyStack[index]), { skipViewChange: true });
 
     historyIndex = index;
     updateUndoRedoButtons();

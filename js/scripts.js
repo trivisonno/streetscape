@@ -2152,11 +2152,39 @@ document.getElementById('projectNameEdit').addEventListener('click', function ()
     input.focus();
 });
 
-// Toggle a 'collapsed' class on the #control element when the collapse button is clicked.
-document.getElementById('collapseButton').addEventListener('click', function () {
-    const controlBox = document.getElementById('control');
-    controlBox.classList.toggle('collapsed');
-});
+// --- Left sidebar: activity rail + sliding panels ---
+// Each rail button opens its own panel (#control is the main menu; the others
+// are placeholders for future features). Only one panel is open at a time.
+(function () {
+    const rail = document.getElementById('sidebarRail');
+    const railButtons = Array.from(rail.querySelectorAll('.railButton'));
+    const panels = {};
+    railButtons.forEach(btn => {
+        panels[btn.dataset.panel] = document.getElementById(btn.dataset.panel);
+    });
+
+    function openPanel(id) {
+        Object.entries(panels).forEach(([pid, el]) => el.classList.toggle('open', pid === id));
+        railButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.panel === id));
+        // Mirror the state on <body> so map controls (e.g. the scale bar) dodge the panel.
+        document.body.classList.toggle('sidebar-open', id != null);
+    }
+
+    railButtons.forEach(btn => {
+        btn.addEventListener('click', function () {
+            const id = btn.dataset.panel;
+            openPanel(panels[id].classList.contains('open') ? null : id);
+        });
+    });
+
+    // The in-panel chevrons just close whatever panel is open.
+    document.querySelectorAll('#collapseButton, .panelClose').forEach(el => {
+        el.addEventListener('click', () => openPanel(null));
+    });
+
+    // Start with the main menu open (previous default).
+    openPanel('control');
+})();
 
 document.getElementById('deleteMarkers').addEventListener('click', function () {
     if (confirm('Are you sure you want to delete all markers?')) {

@@ -9,26 +9,133 @@ body {
     width: 100%;
 }
 
-#control {
-    position: absolute;
-    top: 10px;
-    left: 10px;
-    background: white;
-    padding: 10px;
-    z-index: 1000;
-    border-radius: 5px;
-    box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
-    font-family: sans-serif;
-    max-width: 275px;
+/* Activity rail: always-visible column of buttons docked to the left edge.
+   Each button toggles its own sliding panel (#control is the first one). */
+#sidebarRail {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 44px;
+    background: #2b2b2b;
+    z-index: 1002;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding-top: 8px;
+    box-sizing: border-box;
 }
 
-#control.collapsed {
-    overflow: hidden;
-    height: 20px;
+#sidebarRail .railButton {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+#sidebarRail .railButton svg {
+    fill: #cfcfcf;
+}
+
+#sidebarRail .railButton:hover {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+#sidebarRail .railButton:hover svg,
+#sidebarRail .railButton.active svg {
+    fill: #fff;
+}
+
+#sidebarRail .railButton.active {
+    background: rgba(255, 255, 255, 0.18);
+}
+
+/* Sliding panels: docked just right of the rail, hidden by default. */
+#control,
+.sidePanel {
+    position: fixed;
+    top: 0;
+    left: 44px;
+    bottom: 0;
+    width: 300px;
+    background: white;
+    z-index: 1000;
+    font-family: sans-serif;
+    box-sizing: border-box;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+}
+
+#control {
+    padding: 12px;
+}
+
+#control.open,
+.sidePanel.open {
+    transform: translateX(0);
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
+}
+
+/* Blank placeholder panels for future features. */
+.sidePanel-header {
+    position: relative;
+    display: flex;
+    align-items: center;
+    min-height: 20px;
+    padding: 12px 32px 10px 12px;
+    border-bottom: 1px solid #ddd;
+}
+
+.sidePanel-title {
+    font-weight: bold;
+    font-size: 0.9rem;
+}
+
+.panelClose {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    padding: 2px;
+    line-height: 0;
+    cursor: pointer;
+}
+
+.sidePanel-body {
+    padding: 12px;
+}
+
+.sidePanel-placeholder {
+    margin: 0;
+    color: #888;
+    font-size: 0.85rem;
+    font-style: italic;
+}
+
+/* Keep the bottom-left Leaflet controls (scale bar) clear of the rail/panel. */
+.leaflet-bottom.leaflet-left {
+    margin-left: 44px;
+    transition: margin-left 0.25s ease;
+}
+
+body.sidebar-open .leaflet-bottom.leaflet-left {
+    margin-left: 344px;
 }
 
 #projectHeader {
+    position: relative;
+    min-height: 20px;
     margin-bottom: 10px;
+    padding-right: 24px;
 }
 
 #projectHeader label {
@@ -43,7 +150,9 @@ body {
 
 #tabs .tab {
     flex: 1;
-    padding: 5px;
+    padding: 5px 3px;
+    font-size: 0.7rem;
+    line-height: 1.2;
     cursor: pointer;
     text-align: center;
     background: #eee;

@@ -51,11 +51,13 @@ L.control.scale().addTo(map);
 map.editTools = new L.Editable(map);
 // Tile layer management (available tile layers)
 const tileLayers = [];
-const esriTiles = L.tileLayer('https://gis.cuyahogacounty.us/server/rest/services/IMAGERY/2023_Fall_Aerial/MapServer/tile/{z}/{y}/{x}', {
+// Cuyahoga County cached aerial: standard Web-Mercator XYZ scheme (/tile/{z}/{y}/{x}),
+// cached LOD levels 10-21, so no zoomOffset; overzoom past 21 up to 23.
+const esriTiles = L.tileLayer('https://gis.cuyahogacounty.gov/server/rest/services/IMAGERY/2026_Spring_Aerial/MapServer/tile/{z}/{y}/{x}', {
+    minNativeZoom: 10,
     maxNativeZoom: 21,
     maxZoom: 23,
-    zoomOffset: -10,
-    attribution: '<a href="https://geospatial.gis.cuyahogacounty.gov/" target="_blank">Cuyahoga County GIS</a>'
+    attribution: '<a href="https://geospatial.gis.cuyahogacounty.gov/" target="_blank" rel="noopener">Cuyahoga County GIS</a>'
 }).addTo(map);
 
 
@@ -109,7 +111,7 @@ map.on('polylinemeasure:toggle', function (e) {
     }
 });
 
-tileLayers.push({ name: "Cuyahoga County", url: 'https://gis.cuyahogacounty.us/server/rest/services/IMAGERY/2023_Fall_Aerial/MapServer/tile/{z}/{y}/{x}', layer: esriTiles });
+tileLayers.push({ name: "Cuyahoga County", url: 'https://gis.cuyahogacounty.gov/server/rest/services/IMAGERY/2026_Spring_Aerial/MapServer/tile/{z}/{y}/{x}', layer: esriTiles });
 tileLayers.push({ name: "OpenStreetMap", url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', layer: osmTiles });
 
 // External tile servers (esp. the Cuyahoga County GIS server) occasionally
